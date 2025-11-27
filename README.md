@@ -1,5 +1,7 @@
 # 🍽️ MagicMeal - A Self-Hosted Alternative
 
+![MagicMeal hero UI](img/hero-image.png)
+
 A modern, AI-powered food tracking app built with React Native and Expo. Track your meals effortlessly with barcode scanning and AI photo recognition.
 
 ## 🧠 AI Development Experiment

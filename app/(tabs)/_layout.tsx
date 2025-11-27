@@ -1,10 +1,19 @@
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { Redirect, Tabs, useRouter } from 'expo-router';
-import React, { useMemo, useState } from 'react';
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type ComponentProps,
+} from 'react';
 import {
   Alert,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   StyleSheet,
+  TextInput,
   TouchableOpacity,
   TouchableWithoutFeedback,
   View,
@@ -17,10 +26,14 @@ import { IconSymbol } from '@/components/ui/icon-symbol';
 import type { Theme } from '@/constants/theme';
 import { useSession } from '@/providers/SessionProvider';
 import { useAppTheme } from '@/providers/ThemePreferenceProvider';
+import { createWeightEntry } from '@/services/weight';
+import type { WeightUnit } from '@/types';
+import { useSWRConfig } from 'swr';
 
 export default function TabLayout() {
   const { session, loading } = useSession();
   const [sheetVisible, setSheetVisible] = useState(false);
+  const [weightSheetVisible, setWeightSheetVisible] = useState(false);
 
   if (loading) {
     return (
@@ -74,7 +87,12 @@ export default function TabLayout() {
           }}
         />
       </Tabs>
-      <PlusActionSheet visible={sheetVisible} onClose={() => setSheetVisible(false)} />
+      <PlusActionSheet
+        visible={sheetVisible}
+        onClose={() => setSheetVisible(false)}
+        onSelectWeight={() => setWeightSheetVisible(true)}
+      />
+      <WeightQuickLogSheet visible={weightSheetVisible} onClose={() => setWeightSheetVisible(false)} />
     </>
   );
 }
@@ -211,7 +229,10 @@ const CustomTabBar = ({ state, descriptors, navigation, onOpenSheet }: CustomTab
 type PlusSheetProps = {
   visible: boolean;
   onClose: () => void;
+  onSelectWeight?: () => void;
 };
+
+type IconName = ComponentProps<typeof IconSymbol>['name'];
 
 const quickActions = [
   {
@@ -244,23 +265,29 @@ const quickActions = [
 ] satisfies ReadonlyArray<{
   key: string;
   label: string;
-  icon: string;
+  icon: IconName;
   colorKey: keyof Theme;
   route?: string;
 }>;
 
 const trackerActions = [
   { key: 'water', label: 'Water', icon: 'drop.fill' },
-  { key: 'weight', label: 'Weight', icon: 'scalemass.fill', route: '/(tabs)/tools/weight' },
+  { key: 'weight', label: 'Weight', icon: 'scalemass.fill' },
   { key: 'exercise', label: 'Exercise', icon: 'flame.fill' },
-] as const;
+] satisfies ReadonlyArray<{ key: string; label: string; icon: IconName; route?: string }>;
 
-const PlusActionSheet = ({ visible, onClose }: PlusSheetProps) => {
+const PlusActionSheet = ({ visible, onClose, onSelectWeight }: PlusSheetProps) => {
   const insets = useSafeAreaInsets();
   const { theme } = useAppTheme();
   const router = useRouter();
 
   const handleAction = (action: { route?: string; key: string }) => {
+    if (action.key === 'weight' && onSelectWeight) {
+      onClose();
+      onSelectWeight();
+      return;
+    }
+
     onClose();
     if (action.route) {
       router.push(action.route as any);
@@ -315,6 +342,175 @@ const PlusActionSheet = ({ visible, onClose }: PlusSheetProps) => {
           ))}
         </View>
       </View>
+    </Modal>
+  );
+};
+
+type WeightQuickLogSheetProps = {
+  visible: boolean;
+  onClose: () => void;
+};
+
+const WeightQuickLogSheet = ({ visible, onClose }: WeightQuickLogSheetProps) => {
+  const insets = useSafeAreaInsets();
+  const { theme } = useAppTheme();
+  const { mutate } = useSWRConfig();
+  const styles = useMemo(() => createWeightLogSheetStyles(theme, insets.bottom), [theme, insets.bottom]);
+  const [weightValue, setWeightValue] = useState('');
+  const [unit, setUnit] = useState<WeightUnit>('lb');
+  const [saving, setSaving] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!visible) {
+      setWeightValue('');
+      setUnit('lb');
+      setErrorMessage(null);
+      setSaving(false);
+    }
+  }, [visible]);
+
+  const handleChangeWeight = useCallback(
+    (value: string) => {
+      if (errorMessage) {
+        setErrorMessage(null);
+      }
+      setWeightValue(value);
+    },
+    [errorMessage]
+  );
+
+  const isValidWeight = useMemo(() => {
+    if (!weightValue.trim()) {
+      return false;
+    }
+    const numeric = Number.parseFloat(weightValue.replace(',', '.'));
+    return Number.isFinite(numeric) && numeric > 0;
+  }, [weightValue]);
+
+  const handleSave = useCallback(async () => {
+    const numeric = Number.parseFloat(weightValue.replace(',', '.'));
+    if (!Number.isFinite(numeric) || numeric <= 0) {
+      setErrorMessage('Enter a valid weight.');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      await createWeightEntry({
+        weight: Number(numeric.toFixed(1)),
+        unit,
+      });
+
+      await Promise.all([
+        mutate('weight-entries', undefined, { revalidate: true }),
+        mutate('dashboard-weight', undefined, { revalidate: true }),
+      ]);
+
+      setWeightValue('');
+      setErrorMessage(null);
+      onClose();
+    } catch (error) {
+      console.error('Failed to record weight', error);
+      setErrorMessage('Failed to record weight. Try again.');
+    } finally {
+      setSaving(false);
+    }
+  }, [mutate, onClose, unit, weightValue]);
+
+  const handleClose = useCallback(() => {
+    if (!saving) {
+      onClose();
+    }
+  }, [onClose, saving]);
+
+  const canSave = isValidWeight && !saving;
+
+  return (
+    <Modal transparent animationType="slide" visible={visible} onRequestClose={handleClose}>
+      <TouchableWithoutFeedback onPress={handleClose}>
+        <View style={[sheetStyles.backdrop, { backgroundColor: theme.modalBackdrop }]} />
+      </TouchableWithoutFeedback>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={styles.avoidingView}
+      >
+        <View style={styles.sheet}>
+          <View>
+            <ThemedText type="title" style={styles.sheetTitle}>
+              Log Weight
+            </ThemedText>
+            <ThemedText style={styles.sheetSubtitle}>Quickly capture your latest weight.</ThemedText>
+          </View>
+          <View style={styles.inputGroup}>
+            <ThemedText style={styles.inputLabel}>Weight</ThemedText>
+            <TextInput
+              style={styles.textInput}
+              value={weightValue}
+              onChangeText={handleChangeWeight}
+              keyboardType="decimal-pad"
+              inputMode="decimal"
+              placeholder="150.2"
+              placeholderTextColor={theme.textTertiary}
+              autoFocus
+              returnKeyType="done"
+              onSubmitEditing={() => {
+                if (canSave) {
+                  handleSave();
+                }
+              }}
+            />
+          </View>
+          <View style={styles.unitToggle}>
+            {(['lb', 'kg'] as WeightUnit[]).map((option) => (
+              <TouchableOpacity
+                key={option}
+                style={[
+                  styles.unitButton,
+                  option === unit && styles.unitButtonActive,
+                ]}
+                onPress={() => setUnit(option)}
+                disabled={saving}
+              >
+                <ThemedText
+                  style={[
+                    styles.unitButtonLabel,
+                    option === unit && styles.unitButtonLabelActive,
+                  ]}
+                >
+                  {option.toUpperCase()}
+                </ThemedText>
+              </TouchableOpacity>
+            ))}
+          </View>
+          <ThemedText style={styles.helperText}>
+            Entries use the current time. You can edit or import detailed logs later.
+          </ThemedText>
+          {!!errorMessage && <ThemedText style={styles.errorText}>{errorMessage}</ThemedText>}
+          <View style={styles.actionsRow}>
+            <TouchableOpacity
+              style={[styles.actionButton, styles.secondaryButton]}
+              onPress={handleClose}
+              disabled={saving}
+            >
+              <ThemedText style={styles.secondaryButtonText}>Cancel</ThemedText>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.actionButton,
+                styles.primaryButton,
+                !canSave && styles.disabledButton,
+              ]}
+              onPress={handleSave}
+              disabled={!canSave}
+            >
+              <ThemedText style={styles.primaryButtonText}>
+                {saving ? 'Saving…' : 'Save'}
+              </ThemedText>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 };
@@ -387,3 +583,108 @@ const sheetStyles = StyleSheet.create({
     fontWeight: '600',
   },
 });
+
+const createWeightLogSheetStyles = (theme: Theme, bottomInset: number) =>
+  StyleSheet.create({
+    avoidingView: {
+      flex: 1,
+      justifyContent: 'flex-end',
+    },
+    sheet: {
+      borderTopLeftRadius: 32,
+      borderTopRightRadius: 32,
+      paddingHorizontal: 24,
+      paddingTop: 18,
+      paddingBottom: bottomInset + 24,
+      backgroundColor: theme.card,
+      gap: 16,
+    },
+    sheetTitle: {
+      marginBottom: 4,
+    },
+    sheetSubtitle: {
+      color: theme.textSecondary,
+    },
+    inputGroup: {
+      gap: 8,
+    },
+    inputLabel: {
+      color: theme.textSecondary,
+      fontSize: 13,
+    },
+    textInput: {
+      borderRadius: 12,
+      borderWidth: 1,
+      paddingVertical: 12,
+      paddingHorizontal: 14,
+      fontSize: 20,
+      fontWeight: '600',
+      color: theme.text,
+      borderColor: theme.border,
+      backgroundColor: theme.cardElevated,
+    },
+    unitToggle: {
+      flexDirection: 'row',
+      gap: 12,
+    },
+    unitButton: {
+      flex: 1,
+      borderRadius: 12,
+      borderWidth: 1,
+      paddingVertical: 10,
+      alignItems: 'center',
+      borderColor: theme.border,
+      backgroundColor: theme.cardElevated,
+    },
+    unitButtonActive: {
+      backgroundColor: theme.primary,
+      borderColor: theme.primary,
+    },
+    unitButtonLabel: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: theme.textSecondary,
+    },
+    unitButtonLabelActive: {
+      color: theme.onPrimary,
+    },
+    helperText: {
+      fontSize: 12,
+      color: theme.textTertiary,
+    },
+    errorText: {
+      color: theme.danger,
+      fontSize: 13,
+    },
+    actionsRow: {
+      flexDirection: 'row',
+      gap: 12,
+    },
+    actionButton: {
+      flex: 1,
+      borderRadius: 12,
+      paddingVertical: 14,
+      alignItems: 'center',
+    },
+    secondaryButton: {
+      borderWidth: 1,
+      borderColor: theme.border,
+      backgroundColor: theme.cardElevated,
+    },
+    secondaryButtonText: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: theme.text,
+    },
+    primaryButton: {
+      backgroundColor: theme.primary,
+    },
+    disabledButton: {
+      opacity: 0.5,
+    },
+    primaryButtonText: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: theme.onPrimary,
+    },
+  });

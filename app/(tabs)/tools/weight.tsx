@@ -1,18 +1,14 @@
-import { createOpenAI } from '@ai-sdk/openai';
 import DateTimePicker, {
   DateTimePickerAndroid,
   DateTimePickerEvent,
 } from '@react-native-community/datetimepicker';
-import { generateObject } from 'ai';
 import * as DocumentPicker from 'expo-document-picker';
-import * as FileSystem from 'expo-file-system/legacy';
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert, Platform, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import useSWR from 'swr';
-import { z } from 'zod';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -20,20 +16,13 @@ import { IconSymbol } from '@/components/ui/icon-symbol';
 import WeightTrendChart from '@/components/WeightTrendChart';
 import type { Theme } from '@/constants/theme';
 import { useAppTheme } from '@/providers/ThemePreferenceProvider';
-import type { WeightInput } from '@/services/weight';
 import { createWeightEntries, fetchWeightEntries, removeWeightEntry } from '@/services/weight';
+import { canUseAiWeightImport, parseWeightFileWithAI, readWeightImportFile } from '@/services/weightImport';
 import type { WeightEntry } from '@/types';
 
 const CHART_HEIGHT = 160;
-const OPENAI_API_KEY = process.env.EXPO_PUBLIC_OPENAI_API_KEY;
-const OPENAI_MODEL = 'gpt-4o-mini'; // fastest low-latency OpenAI option available
-const openai = OPENAI_API_KEY ? createOpenAI({ apiKey: OPENAI_API_KEY }) : null;
 type DocumentResult = Awaited<ReturnType<typeof DocumentPicker.getDocumentAsync>>;
 type PickerAsset = DocumentPicker.DocumentPickerAsset;
-const ParserResponseSchema = z.object({
-  parser: z.string(),
-  summary: z.string().optional(),
-});
 
 export default function WeightTool() {
   const { theme } = useAppTheme();
@@ -48,12 +37,12 @@ export default function WeightTool() {
     value: Date;
     onChange: (event: DateTimePickerEvent, date?: Date) => void;
   } | null>(null);
-  const canImport = pickerAvailable && Boolean(openai);
+  const canImport = pickerAvailable && canUseAiWeightImport();
   const importHelperText = useMemo(() => {
     if (!pickerAvailable) {
       return 'File import is not supported on this platform.';
     }
-    if (!openai) {
+    if (!canUseAiWeightImport()) {
       return 'Set EXPO_PUBLIC_OPENAI_API_KEY to enable AI-powered imports.';
     }
     return null;
@@ -188,7 +177,7 @@ export default function WeightTool() {
       return;
     }
 
-    if (!openai) {
+    if (!canUseAiWeightImport()) {
       Alert.alert(
         'Missing configuration',
         'Set EXPO_PUBLIC_OPENAI_API_KEY in your environment to enable importing.'
@@ -216,9 +205,9 @@ export default function WeightTool() {
     setImporting(true);
     try {
       const asset = result.assets[0] as PickerAsset;
-      const fileContent = await readPickedFile(asset);
+      const fileContent = await readWeightImportFile(asset);
 
-      const parsedEntries = await parseWeightFileUsingAI(fileContent, openai);
+      const parsedEntries = await parseWeightFileWithAI(fileContent);
 
       if (!parsedEntries.length) {
         Alert.alert('No entries detected', 'Could not find any weights in that file.');
@@ -692,184 +681,6 @@ const createStyles = (theme: Theme) =>
       backgroundColor: theme.card,
     },
   });
-
-async function parseWeightFileUsingAI(
-  fileContent: string,
-  aiClient: ReturnType<typeof createOpenAI>
-) {
-  const sample = fileContent.split(/\r?\n/).slice(0, 5).join('\n');
-  const parserSpec = await requestParserFromSample(sample, aiClient);
-  const rawEntries = runGeneratedParser(parserSpec.parser, fileContent);
-
-  if (!Array.isArray(rawEntries)) {
-    throw new Error('Generated parser must return an array of entries.');
-  }
-
-  return rawEntries
-    .map((entry) => normalizeParsedEntry(entry))
-    .filter((entry): entry is WeightInput => Boolean(entry));
-}
-
-async function requestParserFromSample(sample: string, aiClient: ReturnType<typeof createOpenAI>) {
-  const prompt = `
-You are a senior data engineer. I will provide the first few lines of a file that contains historical body-weight entries.
-You must infer the structure and return JSON with a plain JavaScript function that can parse the ENTIRE file.
-
-Requirements:
-- Respond ONLY with JSON following this schema:
-{
-  "parser": "function parseWeightLog(fileText) { ... }",
-  "summary": "One sentence describing the detected format"
-}
-- The parser must:
-  * Accept a single string argument \`fileText\`.
-  * Return an array of objects shaped like { weight: number, unit: 'lb' | 'kg', recordedAt: string }.
-  * Handle headers, blank lines, and common date formats. Convert dates to ISO 8601 strings (set time to 09:00:00 local if missing).
-  * Assume "lb" when units are missing.
-  * Use only vanilla JavaScript—no external libraries.
-  * Never access the network or global variables.
-
-Sample input (first ~5 lines only):
-"""
-${sample}
-"""
-`;
-
-  const { object } = await generateObject({
-    model: aiClient(OPENAI_MODEL),
-    temperature: 0,
-    schema: ParserResponseSchema,
-    prompt,
-  });
-
-  if (!object?.parser) {
-    throw new Error('AI response missing parser function.');
-  }
-
-  return object;
-}
-
-function runGeneratedParser(parserSource: string, fileContent: string) {
-  if (parserSource.length > 8000) {
-    throw new Error('AI parser response was unexpectedly long.');
-  }
-
-  try {
-    const runner = new Function(
-      'fileText',
-      `
-      "use strict";
-      ${parserSource}
-      if (typeof parseWeightLog !== 'function') {
-        throw new Error('Parser must define function parseWeightLog(fileText).');
-      }
-      const result = parseWeightLog(fileText);
-      return result;
-    `
-    );
-
-    return runner(fileContent);
-  } catch (error) {
-    throw new Error(
-      error instanceof Error ? error.message : 'Failed to execute the generated parser.'
-    );
-  }
-}
-
-function normalizeParsedEntry(data: any): WeightInput | null {
-  const weightValue =
-    typeof data?.weight === 'number'
-      ? data.weight
-      : data?.weight
-      ? Number(String(data.weight).replace(/[^\d.-]/g, ''))
-      : data?.value
-      ? Number(String(data.value).replace(/[^\d.-]/g, ''))
-      : undefined;
-
-  if (typeof weightValue !== 'number' || Number.isNaN(weightValue) || weightValue <= 0) {
-    return null;
-  }
-
-  const unitRaw =
-    data?.unit ?? data?.units ?? data?.weightUnit ?? data?.unitOfMeasure ?? data?.measurement;
-  const unit = typeof unitRaw === 'string' && unitRaw.toLowerCase().includes('kg') ? 'kg' : 'lb';
-
-  const recordedAtRaw =
-    data?.recordedAt ??
-    data?.date ??
-    data?.timestamp ??
-    data?.datetime ??
-    data?.day ??
-    data?.time ??
-    data?.enteredAt;
-
-  const recordedAt = normalizeDateValue(recordedAtRaw);
-  if (!recordedAt) {
-    return null;
-  }
-
-  return {
-    weight: Number(weightValue.toFixed(1)),
-    unit,
-    recordedAt,
-  };
-}
-
-function normalizeDateValue(value: unknown) {
-  if (!value) return null;
-
-  const coerceDate = (input: Date) => {
-    const hasTime = typeof value === 'string' && /\d{1,2}:\d{2}/.test(value);
-    if (!hasTime) {
-      input.setHours(9, 0, 0, 0);
-    }
-    return input.toISOString();
-  };
-
-  if (value instanceof Date) {
-    return coerceDate(new Date(value.getTime()));
-  }
-
-  if (typeof value === 'number') {
-    const fromNumber = new Date(value);
-    return Number.isNaN(fromNumber.getTime()) ? null : coerceDate(fromNumber);
-  }
-
-  const text = String(value).trim();
-  if (!text.length) return null;
-
-  let candidate = text;
-  if (/^\d{4}-\d{2}-\d{2}$/.test(text)) {
-    candidate = `${text}T09:00:00`;
-  }
-
-  const date = new Date(candidate);
-  if (Number.isNaN(date.getTime())) {
-    return null;
-  }
-
-  return coerceDate(date);
-}
-
-async function readPickedFile(asset: PickerAsset) {
-  const canUseNativeFs =
-    Platform.OS !== 'web' && typeof (FileSystem as any)?.readAsStringAsync === 'function';
-  if (canUseNativeFs) {
-    const encoding = (FileSystem as any).EncodingType?.UTF8 ?? 'utf8';
-    return FileSystem.readAsStringAsync(asset.uri, { encoding });
-  }
-
-  const webFile = (asset as any).file;
-  if (webFile?.text) {
-    return webFile.text();
-  }
-
-  const response = await fetch(asset.uri);
-  if (!response.ok) {
-    throw new Error('Unable to load file contents.');
-  }
-  return response.text();
-}
 
 function groupEntriesByWeek(entries: WeightEntry[]) {
   const map = new Map<string, WeightEntry[]>();

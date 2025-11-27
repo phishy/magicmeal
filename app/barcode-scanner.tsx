@@ -1,13 +1,14 @@
-import { useState, useEffect } from 'react';
-import { StyleSheet, View, TouchableOpacity, Alert } from 'react-native';
-import { CameraView, Camera } from 'expo-camera';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { useRouter } from 'expo-router';
 import type { Theme } from '@/constants/theme';
 import { useAppTheme } from '@/providers/ThemePreferenceProvider';
-import type { MealType } from '@/types';
 import { createMeal } from '@/services/meals';
+import { lookupProductByBarcode } from '@/services/openFoodFacts';
+import type { MealType } from '@/types';
+import { Camera, CameraView } from 'expo-camera';
+import { useRouter } from 'expo-router';
+import { useEffect, useState } from 'react';
+import { Alert, StyleSheet, TouchableOpacity, View } from 'react-native';
 
 export default function BarcodeScanner() {
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
@@ -24,21 +25,18 @@ export default function BarcodeScanner() {
 
   const handleBarCodeScanned = async ({ type, data }: { type: string; data: string }) => {
     setScanned(true);
-    
+
     // Look up barcode in database (you'll integrate with Open Food Facts API or similar)
     await lookupBarcode(data);
   };
 
   const lookupBarcode = async (barcode: string) => {
     try {
-      // For now, we'll use Open Food Facts API (free, open database)
-      const response = await fetch(`https://world.openfoodfacts.org/api/v0/product/${barcode}.json`);
-      const data = await response.json();
-      
-      if (data.status === 1 && data.product) {
-        const product = data.product;
+      const product = await lookupProductByBarcode(barcode);
+
+      if (product) {
         const nutriments = product.nutriments || {};
-        
+
         Alert.alert(
           'Product Found!',
           `${product.product_name || 'Unknown Product'}\n\nCalories: ${Math.round(nutriments.energy_value || nutriments['energy-kcal'] || 0)} kcal\nProtein: ${nutriments.proteins || 0}g\nCarbs: ${nutriments.carbohydrates || 0}g\nFat: ${nutriments.fat || 0}g`,
@@ -73,7 +71,8 @@ export default function BarcodeScanner() {
           ]
         );
       }
-    } catch {
+    } catch (error) {
+      console.error('Barcode lookup error:', error);
       Alert.alert('Error', 'Failed to look up barcode. Please try again.');
       setScanned(false);
     }

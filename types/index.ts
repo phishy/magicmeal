@@ -30,6 +30,38 @@ export interface FoodItem {
   verified?: boolean;
 }
 
+export interface OpenFoodFactsNutriments {
+  ['energy-kcal']?: number;
+  ['energy-kcal_100g']?: number;
+  energy_value?: number;
+  proteins?: number;
+  proteins_100g?: number;
+  carbohydrates?: number;
+  carbohydrates_100g?: number;
+  fat?: number;
+  fat_100g?: number;
+  [key: string]: number | string | undefined;
+}
+
+export interface OpenFoodFactsProduct {
+  code?: string;
+  product_name?: string;
+  nutriments?: OpenFoodFactsNutriments;
+  serving_size?: string;
+  quantity?: string;
+  brands?: string;
+  owner?: string;
+  labels_tags?: string[];
+  nutrition_grades?: string;
+  nutriscore_score?: number;
+}
+
+export interface TranscriptionFilePayload {
+  uri: string;
+  name: string;
+  type: string;
+}
+
 export interface BloodPressureEntry {
   id: string;
   profileId?: string;
@@ -39,11 +71,13 @@ export interface BloodPressureEntry {
   recordedAt: string;
 }
 
+export type WeightUnit = 'lb' | 'kg';
+
 export interface WeightEntry {
   id: string;
   profileId?: string;
   weight: number;
-  unit?: 'lb' | 'kg';
+  unit?: WeightUnit;
   recordedAt: string;
 }
 
@@ -51,7 +85,7 @@ export interface WeightEntryRecord {
   id: string;
   profile_id: string;
   weight: number;
-  unit: 'lb' | 'kg';
+  unit: WeightUnit;
   recorded_at: string;
   created_at: string;
 }

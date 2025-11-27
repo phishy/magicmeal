@@ -1,12 +1,12 @@
 import { supabase } from '@/lib/supabase';
 import { getProfileIdOrThrow } from '@/services/helpers';
-import type { WeightEntry, WeightEntryRecord } from '@/types';
+import type { WeightEntry, WeightEntryRecord, WeightUnit } from '@/types';
 
 const TABLE = 'weight_entries';
 
 export interface WeightInput {
   weight: number;
-  unit?: 'lb' | 'kg';
+  unit?: WeightUnit;
   recordedAt?: string;
 }
 

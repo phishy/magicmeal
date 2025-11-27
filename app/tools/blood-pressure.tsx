@@ -1,24 +1,24 @@
-import { useCallback, useMemo, useState } from 'react';
-import {
-  ActivityIndicator,
-  Alert,
-  Dimensions,
-  ScrollView,
-  StyleSheet,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from 'expo-router';
-import { Svg, Polyline, Circle, Line } from 'react-native-svg';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useCallback, useMemo, useState } from 'react';
+import {
+    ActivityIndicator,
+    Alert,
+    Dimensions,
+    ScrollView,
+    StyleSheet,
+    TextInput,
+    TouchableOpacity,
+    View,
+} from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { Circle, Line, Polyline, Svg } from 'react-native-svg';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import type { Theme } from '@/constants/theme';
 import { IconSymbol } from '@/components/ui/icon-symbol';
+import type { Theme } from '@/constants/theme';
 import { useAppTheme } from '@/providers/ThemePreferenceProvider';
 import type { BloodPressureEntry } from '@/types';
 

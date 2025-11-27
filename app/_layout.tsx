@@ -1,14 +1,14 @@
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import 'react-native-reanimated';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import 'react-native-reanimated';
 
+import { ThemedText } from '@/components/themed-text';
+import { ThemedView } from '@/components/themed-view';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { SessionProvider, useSession } from '@/providers/SessionProvider';
 import { ThemePreferenceProvider } from '@/providers/ThemePreferenceProvider';
-import { ThemedView } from '@/components/themed-view';
-import { ThemedText } from '@/components/themed-text';
 
 export const unstable_settings = {
   anchor: '(tabs)',

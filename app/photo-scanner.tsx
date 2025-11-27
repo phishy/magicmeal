@@ -1,14 +1,14 @@
-import { useState } from 'react';
-import { StyleSheet, View, TouchableOpacity, Alert, Image, ActivityIndicator } from 'react-native';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { useRouter } from 'expo-router';
-import * as ImagePicker from 'expo-image-picker';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import type { Theme } from '@/constants/theme';
 import { useAppTheme } from '@/providers/ThemePreferenceProvider';
-import type { MealType } from '@/types';
 import { createMeal } from '@/services/meals';
+import type { MealType } from '@/types';
+import * as ImagePicker from 'expo-image-picker';
+import { useRouter } from 'expo-router';
+import { useState } from 'react';
+import { ActivityIndicator, Alert, Image, StyleSheet, TouchableOpacity, View } from 'react-native';
 
 export default function PhotoScanner() {
   const [image, setImage] = useState<string | null>(null);
@@ -32,7 +32,7 @@ export default function PhotoScanner() {
 
   const takePicture = async () => {
     const permission = await ImagePicker.requestCameraPermissionsAsync();
-    
+
     if (permission.granted === false) {
       Alert.alert('Permission Required', 'Camera permission is required to take photos.');
       return;
@@ -52,7 +52,7 @@ export default function PhotoScanner() {
 
   const analyzeImage = async (imageUri: string) => {
     setAnalyzing(true);
-    
+
     try {
       // IMPORTANT: You'll need to integrate with an AI vision API
       // Options:
@@ -60,11 +60,11 @@ export default function PhotoScanner() {
       // 2. Google Cloud Vision API - Good for food detection
       // 3. Clarifai Food Model - Specialized for food
       // 4. Custom ML model using TensorFlow Lite
-      
+
       // For now, I'll show a mock implementation
       // You'll replace this with actual API calls
       await mockAnalyzeFood(imageUri);
-      
+
     } catch {
       Alert.alert('Error', 'Failed to analyze image. Please try again.');
       setAnalyzing(false);
@@ -75,7 +75,7 @@ export default function PhotoScanner() {
   const mockAnalyzeFood = async (imageUri: string) => {
     // Simulate API delay
     await new Promise(resolve => setTimeout(resolve, 2000));
-    
+
     // Mock response - in production, this would come from AI
     const detectedMeals = [
       {
@@ -105,7 +105,7 @@ export default function PhotoScanner() {
     ];
 
     setAnalyzing(false);
-    
+
     // Show detected items
     Alert.alert(
       'Meal Detected!',
@@ -194,7 +194,7 @@ export default function PhotoScanner() {
       ) : (
         <View style={dynamicStyles.previewContainer}>
           <Image source={{ uri: image }} style={dynamicStyles.previewImage} />
-          
+
           {analyzing && (
             <View style={dynamicStyles.analyzingOverlay}>
               <ActivityIndicator size="large" color={theme.primary} />
@@ -207,7 +207,7 @@ export default function PhotoScanner() {
 
           {!analyzing && (
             <View style={dynamicStyles.retakeButtonContainer}>
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={dynamicStyles.retakeButton}
                 onPress={() => setImage(null)}
               >

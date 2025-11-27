@@ -18,6 +18,8 @@ import { ThemedView } from '@/components/themed-view';
 import type { Theme } from '@/constants/theme';
 import { useAppTheme } from '@/providers/ThemePreferenceProvider';
 import { createMeal, mapFoodToMealInput } from '@/services/meals';
+import { searchFoodProducts } from '@/services/openFoodFacts';
+import { getOpenAiApiKey, transcribeAudioFile } from '@/services/openai';
 import type { FoodItem, MealType } from '@/types';
 
 export default function FoodSearch() {
@@ -34,7 +36,7 @@ export default function FoodSearch() {
   const [mealSheetFood, setMealSheetFood] = useState<FoodItem | null>(null);
   const router = useRouter();
   const { theme } = useAppTheme();
-  const openAiKey = process.env.EXPO_PUBLIC_OPENAI_API_KEY;
+  const openAiKey = getOpenAiApiKey();
   const PAGE_SIZE = 20;
 
   const searchFood = async (query: string, page = 1, append = false) => {
@@ -52,43 +54,15 @@ export default function FoodSearch() {
     }
 
     try {
-      const response = await fetch(
-        `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(
-          query
-        )}&search_simple=1&json=1&page_size=${PAGE_SIZE}&page=${page}`
-      );
-      const data = await response.json();
+      const { items, hasMore: more } = await searchFoodProducts({
+        query,
+        page,
+        pageSize: PAGE_SIZE,
+      });
 
-      if (data.products && data.products.length > 0) {
-        const mappedResults: FoodItem[] = data.products
-          .filter((p: any) => p.product_name && p.nutriments)
-          .map((product: any) => ({
-            id: product.code || Math.random().toString(),
-            name: product.product_name,
-            brand: product.brands?.split(',')?.[0]?.trim() || product.owner,
-            calories: Math.round(
-              product.nutriments['energy-kcal_100g'] || product.nutriments.energy_value || 0
-            ),
-            protein: Math.round(product.nutriments.proteins_100g || 0),
-            carbs: Math.round(product.nutriments.carbohydrates_100g || 0),
-            fat: Math.round(product.nutriments.fat_100g || 0),
-            serving: product.serving_size || product.quantity || '100g',
-            verified: Boolean(
-              product.nutrition_grades ||
-                product.nutriscore_score ||
-                product.labels_tags?.some((tag: string) => tag.includes('verified'))
-            ),
-          }));
-
-        setHasMore(mappedResults.length === PAGE_SIZE);
-        setCurrentPage(page);
-        setResults((prev) => (append ? [...prev, ...mappedResults] : mappedResults));
-      } else {
-        if (!append) {
-          setResults([]);
-        }
-        setHasMore(false);
-      }
+      setHasMore(more);
+      setCurrentPage(page);
+      setResults((prev) => (append ? [...prev, ...items] : items));
     } catch (error) {
       console.error('Search error:', error);
       Alert.alert('Error', 'Failed to search. Please try again.');
@@ -160,29 +134,12 @@ export default function FoodSearch() {
     if (!openAiKey) return;
     setTranscribing(true);
     try {
-      const formData = new FormData();
-      formData.append('file', {
+      const text = await transcribeAudioFile({
         uri,
         name: 'voice.m4a',
         type: 'audio/m4a',
-      } as any);
-      formData.append('model', 'whisper-1');
-
-      const response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${openAiKey}`,
-        },
-        body: formData,
       });
 
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error?.error?.message ?? 'Transcription failed');
-      }
-
-      const json = await response.json();
-      const text = json?.text?.trim();
       if (text) {
         setSearchQuery(text);
       } else {

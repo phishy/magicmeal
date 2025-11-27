@@ -7,9 +7,9 @@ import { Redirect } from 'expo-router';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import type { Theme } from '@/constants/theme';
+import { useSession } from '@/providers/SessionProvider';
 import { useAppTheme } from '@/providers/ThemePreferenceProvider';
 import { signInWithEmail, signUpWithEmail } from '@/services/auth';
-import { useSession } from '@/providers/SessionProvider';
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');

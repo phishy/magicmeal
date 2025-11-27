@@ -1,31 +1,31 @@
+import { useFocusEffect } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import {
-  ActivityIndicator,
-  Alert,
-  Dimensions,
-  ScrollView,
-  StyleSheet,
-  TextInput,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    Alert,
+    Dimensions,
+    ScrollView,
+    StyleSheet,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from 'react-native';
-import { useFocusEffect } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { Svg, Polyline, Circle, Line } from 'react-native-svg';
 import { Swipeable } from 'react-native-gesture-handler';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { Circle, Line, Polyline, Svg } from 'react-native-svg';
 import useSWR from 'swr';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import type { Theme } from '@/constants/theme';
 import { IconSymbol } from '@/components/ui/icon-symbol';
+import type { Theme } from '@/constants/theme';
 import { useAppTheme } from '@/providers/ThemePreferenceProvider';
-import type { BloodPressureEntry } from '@/types';
 import {
-  createBloodPressureEntry,
-  fetchBloodPressureEntries,
-  removeBloodPressureEntry,
+    createBloodPressureEntry,
+    fetchBloodPressureEntries,
+    removeBloodPressureEntry,
 } from '@/services/bloodPressure';
+import type { BloodPressureEntry } from '@/types';
 
 const CHART_HEIGHT = 160;
 const CHART_WIDTH = Dimensions.get('window').width - 48;

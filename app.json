@@ -38,6 +38,28 @@
             "backgroundColor": "#000000"
           }
         }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow MagicMeal to access your camera to scan barcodes and capture meal photos.",
+          "microphonePermission": false,
+          "recordAudioAndroid": false
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow MagicMeal to access your photos to log meals."
+        }
+      ],
+      [
+        "expo-media-library",
+        {
+          "photosPermission": "Allow MagicMeal to access your photo library.",
+          "savePhotosPermission": "Allow MagicMeal to save meal photos.",
+          "isAccessMediaLocationEnabled": true
+        }
       ]
     ],
     "experiments": {

@@ -1,3 +1,4 @@
+import CalorieProgressCard from '@/components/CalorieProgressCard';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { IconSymbol } from '@/components/ui/icon-symbol';
@@ -9,7 +10,7 @@ import { fetchWeightEntries } from '@/services/weight';
 import type { MealEntry, WeightEntry } from '@/types';
 import { useRouter } from 'expo-router';
 import { useMemo } from 'react';
-import { ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import useSWR from 'swr';
 
@@ -73,7 +74,6 @@ export default function DashboardScreen() {
   }, [todaysMeals]);
 
   const calorieGoal = 2000;
-  const remaining = calorieGoal - totals.calories;
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
@@ -82,6 +82,13 @@ export default function DashboardScreen() {
           Dashboard
         </ThemedText>
         <ThemedText style={styles.subheading}>At-a-glance look at your progress.</ThemedText>
+
+        <CalorieProgressCard
+          goal={calorieGoal}
+          consumed={totals.calories}
+          exercise={0}
+          onPress={() => router.push('/food-search')}
+        />
 
         <View style={styles.grid}>
           <ThemedView style={styles.card}>
@@ -92,15 +99,6 @@ export default function DashboardScreen() {
             <ThemedText style={styles.cardValue}>{latestWeightInfo.value}</ThemedText>
             <ThemedText style={styles.cardChange}>{latestWeightInfo.detail}</ThemedText>
           </ThemedView>
-
-          <TouchableOpacity style={styles.card} onPress={() => router.push('/food-search')}>
-            <View style={[styles.iconWrap, { backgroundColor: theme.primary }]}>
-              <IconSymbol name="magnifyingglass" size={24} color="#fff" />
-            </View>
-            <ThemedText style={styles.cardLabel}>Calories</ThemedText>
-            <ThemedText style={styles.cardValue}>{totals.calories}</ThemedText>
-            <ThemedText style={styles.cardChange}>{remaining > 0 ? `${remaining} left` : `${Math.abs(remaining)} over`}</ThemedText>
-          </TouchableOpacity>
 
           <ThemedView style={styles.card}>
             <View style={[styles.iconWrap, { backgroundColor: '#FFB347' }]}>

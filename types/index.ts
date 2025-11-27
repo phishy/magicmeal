@@ -70,3 +70,10 @@ export interface WeightTrendChartProps {
   style?: StyleProp<ViewStyle>;
 }
 
+export interface CalorieProgressCardProps {
+  goal: number;
+  consumed: number;
+  exercise?: number;
+  onPress?: () => void;
+}
+

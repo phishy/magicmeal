@@ -38,6 +38,27 @@ export default function DashboardScreen() {
     fetchWeightEntries(7)
   );
 
+  const latestWeightInfo = useMemo(() => {
+    if (!weightEntries.length) {
+      return {
+        value: '--',
+        detail: 'No weight entries yet',
+      };
+    }
+
+    const entry = weightEntries[0];
+    const unit = entry.unit ?? 'lb';
+    const recordedDate = new Date(entry.recordedAt);
+    const formattedDate = Number.isNaN(recordedDate.getTime())
+      ? entry.recordedAt
+      : recordedDate.toLocaleDateString();
+
+    return {
+      value: `${entry.weight} ${unit}`,
+      detail: `Recorded ${formattedDate}`,
+    };
+  }, [weightEntries]);
+
   const totals = useMemo(() => {
     return todaysMeals.reduce(
       (acc, meal) => {
@@ -63,6 +84,15 @@ export default function DashboardScreen() {
         <ThemedText style={styles.subheading}>At-a-glance look at your progress.</ThemedText>
 
         <View style={styles.grid}>
+          <ThemedView style={styles.card}>
+            <View style={[styles.iconWrap, { backgroundColor: theme.secondary }]}>
+              <IconSymbol name="scalemass.fill" size={24} color="#fff" />
+            </View>
+            <ThemedText style={styles.cardLabel}>Last Weight</ThemedText>
+            <ThemedText style={styles.cardValue}>{latestWeightInfo.value}</ThemedText>
+            <ThemedText style={styles.cardChange}>{latestWeightInfo.detail}</ThemedText>
+          </ThemedView>
+
           <TouchableOpacity style={styles.card} onPress={() => router.push('/food-search')}>
             <View style={[styles.iconWrap, { backgroundColor: theme.primary }]}>
               <IconSymbol name="magnifyingglass" size={24} color="#fff" />

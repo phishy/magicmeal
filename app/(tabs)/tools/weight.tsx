@@ -67,7 +67,6 @@ export default function WeightTool() {
     value: Date;
     onChange: (event: DateTimePickerEvent, date?: Date) => void;
   } | null>(null);
-  const [activePointIndex, setActivePointIndex] = useState<number | null>(null);
   const canImport = pickerAvailable && Boolean(openai);
   const importHelperText = useMemo(() => {
     if (!pickerAvailable) {
@@ -143,26 +142,43 @@ export default function WeightTool() {
     return sortedEntries.filter((entry) => new Date(entry.recordedAt).getTime() >= cutoff).reverse();
   }, [sortedEntries, chartRange, customRange]);
 
-  useEffect(() => {
-    if (chartEntries.length) {
-      setActivePointIndex(chartEntries.length - 1);
-    } else {
-      setActivePointIndex(null);
-    }
+  const chartStats = useMemo(() => {
+    if (!chartEntries.length) return null;
+    const values = chartEntries.map((entry) => entry.weight);
+    const min = Math.min(...values);
+    const max = Math.max(...values);
+    const padding = Math.max(1, (max - min) * 0.05);
+    return {
+      min,
+      max,
+      offset: min - padding,
+    };
   }, [chartEntries]);
 
   const chartData = useMemo(() => {
-    return chartEntries.map((entry, index) => ({
-      value: Number(entry.weight.toFixed(1)),
-      label: new Date(entry.recordedAt).toLocaleDateString(undefined, {
-        month: 'short',
-        day: 'numeric',
-      }),
-      customDataPoint: () => null,
-      dataPointText: entry.weight.toFixed(1),
-      index,
+    if (!chartStats) return [];
+    return chartEntries.map((entry) => ({
+      value: Number((entry.weight - chartStats.offset).toFixed(3)),
       entry,
     }));
+  }, [chartEntries, chartStats]);
+
+  const xAxisLabelTexts = useMemo(() => {
+    if (!chartEntries.length) return [];
+    const labelCount = Math.min(6, chartEntries.length);
+    const indices = new Set(
+      Array.from({ length: labelCount }, (_, idx) =>
+        Math.round((idx / Math.max(labelCount - 1, 1)) * (chartEntries.length - 1))
+      )
+    );
+    return chartEntries.map((entry, idx) =>
+      indices.has(idx)
+        ? new Date(entry.recordedAt).toLocaleDateString(undefined, {
+            month: 'short',
+            day: 'numeric',
+          })
+        : ''
+    );
   }, [chartEntries]);
 
   const openDatePicker = useCallback(
@@ -388,26 +404,34 @@ export default function WeightTool() {
                 width={CHART_WIDTH}
                 height={CHART_HEIGHT}
                 areaChart
+                adjustToWidth
                 initialSpacing={0}
+                endSpacing={0}
+                disableScroll
                 spacing={chartEntries.length > 1 ? CHART_WIDTH / (chartEntries.length - 1) : CHART_WIDTH}
                 thickness={3}
                 color={theme.primary}
+                startFillColor={theme.primary}
+                startOpacity={0.1}
+                endFillColor={theme.card}
+                endOpacity={0.01}
+                yAxisLabelWidth={0}
                 dataPointsColor={theme.primary}
-                dataPointsHeight={activePointIndex !== null ? 14 : 10}
-                dataPointsWidth={activePointIndex !== null ? 14 : 10}
                 hideDataPoints
                 curved
-                xAxisColor="transparent"
+                xAxisColor={theme.separator}
                 yAxisColor="transparent"
+                xAxisLabelTexts={xAxisLabelTexts}
+                xAxisLabelTextStyle={styles.xAxisLabel}
                 showVerticalLines={false}
-                hideAxesAndRules
+                hideYAxisText
                 showScrollIndicator={false}
                 pointerConfig={{
                   pointerStripUptoDataPoint: true,
                   pointerStripColor: theme.border,
                   pointerStripWidth: 1,
                   pointerColor: theme.primary,
-                  pointerLabelComponent: (items: { entry: WeightEntry }[]) => {
+                  pointerLabelComponent: (items: { value: number; entry: WeightEntry }[]) => {
                     const item = items?.[0];
                     if (!item) return null;
                     const entry = item.entry as WeightEntry;

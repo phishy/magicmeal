@@ -1,3 +1,6 @@
+import type { ReactNode } from 'react';
+import type { StyleProp, ViewStyle } from 'react-native';
+
 export type MealType = 'breakfast' | 'lunch' | 'dinner' | 'snack';
 
 export interface MealEntry {
@@ -51,5 +54,19 @@ export interface WeightEntryRecord {
   unit: 'lb' | 'kg';
   recorded_at: string;
   created_at: string;
+}
+
+export interface WeightTrendChartProps {
+  entries: WeightEntry[];
+  title?: string;
+  subtitle?: string;
+  emptyMessage?: string;
+  height?: number;
+  showYAxisLabels?: boolean;
+  showXAxisLabels?: boolean;
+  yAxisLabelCount?: number;
+  wrapInCard?: boolean;
+  topContent?: ReactNode;
+  style?: StyleProp<ViewStyle>;
 }
 

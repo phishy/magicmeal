@@ -2,6 +2,10 @@
 
 A modern, AI-powered food tracking app built with React Native and Expo. Track your meals effortlessly with barcode scanning and AI photo recognition.
 
+## 🧠 AI Development Experiment
+
+MagicMeal doubles as an ongoing AI-first development experiment. We lean on Cursor cloud agents for day-to-day implementation work—they can open PRs, take ownership of GitHub issues, and even coordinate Supabase schema evolutions via the Supabase MCP integration. Copilot handles pull-request reviews for an automated second set of eyes, while comprehensive GitHub Actions checks keep merges safe. For database work, we spin up Supabase branches to preview schema changes end-to-end before shipping. This workflow lets us prototype quickly while keeping architectural decisions and quality controls auditable.
+
 ## ✨ Features
 
 - **📊 Daily Food Logging** - Track calories, protein, carbs, and fat

@@ -1,6 +1,7 @@
-import { Alert, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { Alert, Image, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import { useEffect, useState } from 'react';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -9,6 +10,7 @@ import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useSession } from '@/providers/SessionProvider';
 import { signOut } from '@/services/auth';
+import { getGravatarUrl } from '@/services/helpers';
 
 export default function YouScreen() {
   const colorScheme = useColorScheme() ?? 'light';
@@ -16,6 +18,17 @@ export default function YouScreen() {
   const styles = createStyles(theme);
   const { session } = useSession();
   const router = useRouter();
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    const loadAvatar = async () => {
+      if (session?.user?.email) {
+        const url = await getGravatarUrl(session.user.email, 80);
+        setAvatarUrl(url);
+      }
+    };
+    loadAvatar();
+  }, [session?.user?.email]);
 
   const handleSignOut = () => {
     Alert.alert('Sign out', 'Are you sure you want to sign out?', [
@@ -43,7 +56,11 @@ export default function YouScreen() {
         </View>
 
         <View style={styles.card}>
-          <IconSymbol name="person.fill" size={24} color={theme.primary} />
+          {avatarUrl ? (
+            <Image source={{ uri: avatarUrl }} style={styles.avatar} />
+          ) : (
+            <IconSymbol name="person.fill" size={24} color={theme.primary} />
+          )}
           <View style={styles.cardText}>
             <ThemedText style={styles.cardTitle}>{session?.user.email ?? 'Unknown user'}</ThemedText>
             <ThemedText style={styles.cardDescription}>Email</ThemedText>
@@ -88,6 +105,11 @@ const createStyles = (theme: typeof Colors.light) =>
       padding: 16,
       borderRadius: 16,
       backgroundColor: theme.card,
+    },
+    avatar: {
+      width: 48,
+      height: 48,
+      borderRadius: 24,
     },
     cardText: {
       gap: 2,

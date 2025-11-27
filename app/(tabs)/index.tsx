@@ -1,6 +1,6 @@
-import { useMemo, useCallback } from 'react';
-import { StyleSheet, ScrollView, TouchableOpacity, View } from 'react-native';
-import { useRouter, useFocusEffect } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { useCallback, useMemo } from 'react';
+import { ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
 import useSWR from 'swr';
 
@@ -9,8 +9,10 @@ import { ThemedView } from '@/components/themed-view';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import type { MealEntry } from '@/types';
 import { fetchMealsForDate, removeMeal as removeMealRecord } from '@/services/meals';
+import type { MealEntry, MealType } from '@/types';
+
+const mealOrder: MealType[] = ['breakfast', 'lunch', 'dinner', 'snack'];
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -37,6 +39,13 @@ export default function HomeScreen() {
       mutate();
     }, [mutate])
   );
+
+  const groupedMeals = useMemo(() => {
+    return mealOrder.reduce<Record<MealType, MealEntry[]>>((acc, mealType) => {
+      acc[mealType] = todaysMeals.filter((meal) => meal.mealType === mealType);
+      return acc;
+    }, { breakfast: [], lunch: [], dinner: [], snack: [] });
+  }, [todaysMeals]);
 
   const totals = useMemo(() => {
     return todaysMeals.reduce(
@@ -100,9 +109,9 @@ export default function HomeScreen() {
 
       <ThemedView style={dynamicStyles.quickActions}>
         <ThemedText type="subtitle" style={dynamicStyles.sectionTitle}>Log Food</ThemedText>
-        
+
         <View style={dynamicStyles.actionButtons}>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={dynamicStyles.actionButton}
             onPress={() => router.push('/barcode-scanner')}
           >
@@ -110,7 +119,7 @@ export default function HomeScreen() {
             <ThemedText style={dynamicStyles.actionText}>Scan Barcode</ThemedText>
           </TouchableOpacity>
 
-          <TouchableOpacity 
+          <TouchableOpacity
             style={dynamicStyles.actionButton}
             onPress={() => router.push('/photo-scanner')}
           >
@@ -118,7 +127,7 @@ export default function HomeScreen() {
             <ThemedText style={dynamicStyles.actionText}>Photo</ThemedText>
           </TouchableOpacity>
 
-          <TouchableOpacity 
+          <TouchableOpacity
             style={dynamicStyles.actionButton}
             onPress={() => router.push('/food-search')}
           >
@@ -130,7 +139,7 @@ export default function HomeScreen() {
 
       <ThemedView style={dynamicStyles.mealsSection}>
         <ThemedText type="subtitle" style={dynamicStyles.sectionTitle}>Today&apos;s Meals</ThemedText>
-        
+
         {isLoading ? (
           <ThemedView style={dynamicStyles.emptyState}>
             <ThemedText style={dynamicStyles.emptyText}>Loading meals...</ThemedText>
@@ -141,42 +150,69 @@ export default function HomeScreen() {
             <ThemedText style={dynamicStyles.emptySubtext}>Tap an option above to get started!</ThemedText>
           </ThemedView>
         ) : (
-          todaysMeals.map((meal) => (
-            <Swipeable
-              key={meal.id}
-              renderRightActions={() => (
-                <View style={dynamicStyles.swipeActions}>
+          mealOrder.map((mealType) => {
+            const meals = groupedMeals[mealType];
+            return (
+              <View key={mealType} style={dynamicStyles.mealGroup}>
+                <View style={dynamicStyles.mealGroupHeader}>
+                  <View>
+                    <ThemedText style={dynamicStyles.mealGroupTitle}>
+                      {mealType.charAt(0).toUpperCase() + mealType.slice(1)}
+                    </ThemedText>
+                    <ThemedText style={dynamicStyles.mealGroupSubtitle}>
+                      {meals.length > 0 ? `${meals.length} items` : 'Nothing logged'}
+                    </ThemedText>
+                  </View>
                   <TouchableOpacity
-                    style={[dynamicStyles.swipeButton, dynamicStyles.deleteButton]}
-                    onPress={() => handleRemoveMeal(meal.id)}
+                    style={dynamicStyles.mealGroupAdd}
+                    onPress={() => router.push('/food-search')}
                   >
-                    <IconSymbol size={24} name="trash.fill" color="#fff" />
-                    <ThemedText style={dynamicStyles.swipeButtonText}>Remove</ThemedText>
+                    <IconSymbol name="plus" size={16} color="#fff" />
                   </TouchableOpacity>
                 </View>
-              )}
-            >
-              <View style={dynamicStyles.mealCard}>
-                <View style={dynamicStyles.mealHeader}>
-                  <ThemedText style={dynamicStyles.mealName}>{meal.name}</ThemedText>
-                  <ThemedText style={dynamicStyles.mealCalories}>{meal.calories} cal</ThemedText>
-                </View>
-                <View style={dynamicStyles.mealMacros}>
-                  <ThemedText style={dynamicStyles.mealMacroText}>P: {meal.protein}g</ThemedText>
-                  <ThemedText style={dynamicStyles.mealMacroText}>C: {meal.carbs}g</ThemedText>
-                  <ThemedText style={dynamicStyles.mealMacroText}>F: {meal.fat}g</ThemedText>
-                </View>
-                <View style={dynamicStyles.mealFooter}>
-                  <ThemedText style={dynamicStyles.mealTime}>
-                    {new Date(meal.consumedAt).toLocaleTimeString('en-US', {
-                      hour: 'numeric',
-                      minute: '2-digit',
-                    })}
-                  </ThemedText>
-                </View>
+                {meals.length === 0 ? (
+                  <ThemedText style={dynamicStyles.mealGroupEmpty}>+ Tap to add food</ThemedText>
+                ) : (
+                  meals.map((meal) => (
+                    <Swipeable
+                      key={meal.id}
+                      renderRightActions={() => (
+                        <View style={dynamicStyles.swipeActions}>
+                          <TouchableOpacity
+                            style={[dynamicStyles.swipeButton, dynamicStyles.deleteButton]}
+                            onPress={() => handleRemoveMeal(meal.id)}
+                          >
+                            <IconSymbol size={24} name="trash.fill" color="#fff" />
+                            <ThemedText style={dynamicStyles.swipeButtonText}>Remove</ThemedText>
+                          </TouchableOpacity>
+                        </View>
+                      )}
+                    >
+                      <View style={dynamicStyles.mealCard}>
+                        <View style={dynamicStyles.mealHeader}>
+                          <ThemedText style={dynamicStyles.mealName}>{meal.name}</ThemedText>
+                          <ThemedText style={dynamicStyles.mealCalories}>{meal.calories} cal</ThemedText>
+                        </View>
+                        <View style={dynamicStyles.mealMacros}>
+                          <ThemedText style={dynamicStyles.mealMacroText}>P: {meal.protein}g</ThemedText>
+                          <ThemedText style={dynamicStyles.mealMacroText}>C: {meal.carbs}g</ThemedText>
+                          <ThemedText style={dynamicStyles.mealMacroText}>F: {meal.fat}g</ThemedText>
+                        </View>
+                        <View style={dynamicStyles.mealFooter}>
+                          <ThemedText style={dynamicStyles.mealTime}>
+                            {new Date(meal.consumedAt).toLocaleTimeString('en-US', {
+                              hour: 'numeric',
+                              minute: '2-digit',
+                            })}
+                          </ThemedText>
+                        </View>
+                      </View>
+                    </Swipeable>
+                  ))
+                )}
               </View>
-            </Swipeable>
-          ))
+            );
+          })
         )}
       </ThemedView>
     </ScrollView>
@@ -259,6 +295,41 @@ const createStyles = (theme: typeof Colors.light) => StyleSheet.create({
   },
   mealsSection: {
     padding: 20,
+    gap: 16,
+  },
+  mealGroup: {
+    borderRadius: 18,
+    backgroundColor: theme.card,
+    padding: 16,
+    gap: 12,
+  },
+  mealGroupHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 12,
+    borderRadius: 14,
+    backgroundColor: theme.cardElevated,
+  },
+  mealGroupTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+  },
+  mealGroupSubtitle: {
+    fontSize: 13,
+    color: theme.textSecondary,
+  },
+  mealGroupAdd: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: theme.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  mealGroupEmpty: {
+    color: theme.textTertiary,
+    fontSize: 13,
   },
   emptyState: {
     padding: 40,

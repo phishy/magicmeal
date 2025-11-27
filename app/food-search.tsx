@@ -1,33 +1,62 @@
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import { Audio } from 'expo-av';
+import { useRouter } from 'expo-router';
+import { useEffect, useMemo, useState } from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  FlatList,
+  Modal,
+  StyleSheet,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { createMeal, mapFoodToMealInput } from '@/services/meals';
 import type { FoodItem, MealType } from '@/types';
-import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 
 export default function FoodSearch() {
   const [searchQuery, setSearchQuery] = useState('');
   const [results, setResults] = useState<FoodItem[]>([]);
   const [searching, setSearching] = useState(false);
+  const [recording, setRecording] = useState<Audio.Recording | null>(null);
+  const [isRecording, setIsRecording] = useState(false);
+  const [transcribing, setTranscribing] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [onlyBranded, setOnlyBranded] = useState(false);
+  const [mealSheetFood, setMealSheetFood] = useState<FoodItem | null>(null);
   const router = useRouter();
   const colorScheme = useColorScheme() ?? 'light';
   const theme = Colors[colorScheme];
+  const openAiKey = process.env.EXPO_PUBLIC_OPENAI_API_KEY;
+  const PAGE_SIZE = 20;
 
-  const searchFood = async (query: string) => {
+  const searchFood = async (query: string, page = 1, append = false) => {
     if (!query.trim()) {
       setResults([]);
+      setHasMore(false);
+      setCurrentPage(1);
       return;
     }
 
-    setSearching(true);
+    if (append) {
+      setLoadingMore(true);
+    } else {
+      setSearching(true);
+    }
 
     try {
-      // Search Open Food Facts database
       const response = await fetch(
-        `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(query)}&search_simple=1&json=1&page_size=20`
+        `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(
+          query
+        )}&search_simple=1&json=1&page_size=${PAGE_SIZE}&page=${page}`
       );
       const data = await response.json();
 
@@ -37,64 +66,183 @@ export default function FoodSearch() {
           .map((product: any) => ({
             id: product.code || Math.random().toString(),
             name: product.product_name,
-            calories: Math.round(product.nutriments['energy-kcal_100g'] || product.nutriments.energy_value || 0),
+            brand: product.brands?.split(',')?.[0]?.trim() || product.owner,
+            calories: Math.round(
+              product.nutriments['energy-kcal_100g'] || product.nutriments.energy_value || 0
+            ),
             protein: Math.round(product.nutriments.proteins_100g || 0),
             carbs: Math.round(product.nutriments.carbohydrates_100g || 0),
             fat: Math.round(product.nutriments.fat_100g || 0),
-            serving: product.serving_size || '100g',
+            serving: product.serving_size || product.quantity || '100g',
+            verified: Boolean(
+              product.nutrition_grades ||
+                product.nutriscore_score ||
+                product.labels_tags?.some((tag: string) => tag.includes('verified'))
+            ),
           }));
 
-        setResults(mappedResults);
+        setHasMore(mappedResults.length === PAGE_SIZE);
+        setCurrentPage(page);
+        setResults((prev) => (append ? [...prev, ...mappedResults] : mappedResults));
       } else {
-        setResults([]);
+        if (!append) {
+          setResults([]);
+        }
+        setHasMore(false);
       }
     } catch (error) {
       console.error('Search error:', error);
       Alert.alert('Error', 'Failed to search. Please try again.');
     } finally {
-      setSearching(false);
+      if (append) {
+        setLoadingMore(false);
+      } else {
+        setSearching(false);
+      }
     }
   };
 
-  const addFoodToLog = async (food: FoodItem) => {
+  const addFoodToLog = async (food: FoodItem, mealType: MealType) => {
     try {
-      const mealType = getCurrentMealType();
       await createMeal(mapFoodToMealInput(food, mealType));
       Alert.alert('Success', 'Meal added to your log!');
-      router.back();
+      router.replace('/(tabs)');
     } catch {
       Alert.alert('Error', 'Failed to save meal. Please try again.');
     }
   };
 
-  const getCurrentMealType = (): MealType => {
-    const hour = new Date().getHours();
-    if (hour < 11) return 'breakfast';
-    if (hour < 15) return 'lunch';
-    if (hour < 20) return 'dinner';
-    return 'snack';
+  const startRecording = async () => {
+    if (!openAiKey) {
+      Alert.alert('Missing configuration', 'Set EXPO_PUBLIC_OPENAI_API_KEY to use voice search.');
+      return;
+    }
+
+    const { granted } = await Audio.requestPermissionsAsync();
+    if (!granted) {
+      Alert.alert('Permission required', 'Enable microphone access to use voice search.');
+      return;
+    }
+
+    await Audio.setAudioModeAsync({
+      allowsRecordingIOS: true,
+      playsInSilentModeIOS: true,
+    });
+
+    try {
+      const { recording: newRecording } = await Audio.Recording.createAsync(
+        Audio.RecordingOptionsPresets.HIGH_QUALITY
+      );
+      setRecording(newRecording);
+      setIsRecording(true);
+    } catch (error) {
+      console.error('Recording error', error);
+      Alert.alert('Recording error', 'Unable to start recording. Please try again.');
+    }
+  };
+
+  const stopRecording = async () => {
+    if (!recording) return;
+    try {
+      await recording.stopAndUnloadAsync();
+      const uri = recording.getURI();
+      setRecording(null);
+      setIsRecording(false);
+      if (uri) {
+        await transcribeAudio(uri);
+      }
+    } catch (error) {
+      console.error('Stop recording error', error);
+      Alert.alert('Recording error', 'Unable to stop recording.');
+    }
+  };
+
+  const transcribeAudio = async (uri: string) => {
+    if (!openAiKey) return;
+    setTranscribing(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', {
+        uri,
+        name: 'voice.m4a',
+        type: 'audio/m4a',
+      } as any);
+      formData.append('model', 'whisper-1');
+
+      const response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${openAiKey}`,
+        },
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error?.error?.message ?? 'Transcription failed');
+      }
+
+      const json = await response.json();
+      const text = json?.text?.trim();
+      if (text) {
+        setSearchQuery(text);
+      } else {
+        Alert.alert('No audio detected', 'Please try speaking again.');
+      }
+    } catch (error: any) {
+      console.error('Transcription error', error);
+      Alert.alert('Transcription error', error?.message ?? 'Unable to transcribe audio.');
+    } finally {
+      setTranscribing(false);
+    }
+  };
+
+  const handleMicPress = () => {
+    if (isRecording) {
+      stopRecording();
+    } else {
+      startRecording();
+    }
+  };
+
+  const loadMoreResults = () => {
+    const trimmed = searchQuery.trim();
+    if (!trimmed || !hasMore || loadingMore || searching) return;
+    const nextPage = currentPage + 1;
+    searchFood(trimmed, nextPage, true);
   };
 
   const dynamicStyles = createStyles(theme);
+  const filteredResults = useMemo(
+    () => (onlyBranded ? results.filter((item) => Boolean(item.brand)) : results),
+    [results, onlyBranded]
+  );
 
   const renderFoodItem = ({ item }: { item: FoodItem }) => (
-    <TouchableOpacity
-      style={dynamicStyles.foodItem}
-      onPress={() => addFoodToLog(item)}
-    >
+    <View style={dynamicStyles.resultCard}>
       <View style={dynamicStyles.foodInfo}>
-        <ThemedText style={dynamicStyles.foodName}>{item.name}</ThemedText>
-        <ThemedText style={dynamicStyles.foodServing}>{item.serving}</ThemedText>
-      </View>
-      <View style={dynamicStyles.foodNutrition}>
-        <ThemedText style={dynamicStyles.foodCalories}>{item.calories} cal</ThemedText>
-        <View style={dynamicStyles.macros}>
-          <ThemedText style={dynamicStyles.macroText}>P: {item.protein}g</ThemedText>
-          <ThemedText style={dynamicStyles.macroText}>C: {item.carbs}g</ThemedText>
-          <ThemedText style={dynamicStyles.macroText}>F: {item.fat}g</ThemedText>
+        <View style={dynamicStyles.resultTitleRow}>
+          <ThemedText style={dynamicStyles.foodName}>{item.name}</ThemedText>
+          {item.verified && (
+            <View style={dynamicStyles.verifiedBadge}>
+              <MaterialIcons name="verified" size={12} color="#0A84FF" />
+            </View>
+          )}
         </View>
+        <ThemedText style={dynamicStyles.foodServing}>
+          {item.calories} cal, {item.serving}
+          {item.brand ? `, ${item.brand}` : ''}
+        </ThemedText>
       </View>
-    </TouchableOpacity>
+      <TouchableOpacity
+        style={dynamicStyles.resultAddButton}
+        onPress={() => setMealSheetFood(item)}
+        accessibilityRole="button"
+        accessibilityLabel={`Add ${item.name}`}
+      >
+        <MaterialIcons name="add" size={20} color="#fff" />
+      </TouchableOpacity>
+    </View>
   );
 
   useEffect(() => {
@@ -102,15 +250,25 @@ export default function FoodSearch() {
     if (!trimmed) {
       setResults([]);
       setSearching(false);
+      setHasMore(false);
+      setCurrentPage(1);
       return;
     }
 
     const timeout = setTimeout(() => {
-      searchFood(trimmed);
+      searchFood(trimmed, 1, false);
     }, 400);
 
     return () => clearTimeout(timeout);
   }, [searchQuery]);
+
+  useEffect(() => {
+    return () => {
+      if (recording) {
+        recording.stopAndUnloadAsync().catch(() => {});
+      }
+    };
+  }, [recording]);
 
   return (
     <ThemedView style={dynamicStyles.container}>
@@ -132,34 +290,80 @@ export default function FoodSearch() {
             onChangeText={setSearchQuery}
             autoFocus
           />
+          <TouchableOpacity
+            onPress={handleMicPress}
+            style={[
+              dynamicStyles.micButton,
+              isRecording && dynamicStyles.micButtonActive,
+              (!openAiKey || transcribing) && dynamicStyles.micButtonDisabled,
+            ]}
+            disabled={!openAiKey || transcribing}
+            accessibilityRole="button"
+            accessibilityLabel="Voice search"
+          >
+            <MaterialIcons
+              name="mic"
+              size={18}
+              color={isRecording ? theme.background : theme.text}
+            />
+          </TouchableOpacity>
         </View>
       </View>
 
-      {searching && (
+      {(searching || transcribing) && (
         <View style={dynamicStyles.loadingContainer}>
           <ActivityIndicator size="large" color={theme.primary} />
-          <ThemedText style={dynamicStyles.loadingText}>Searching...</ThemedText>
+          <ThemedText style={dynamicStyles.loadingText}>
+            {transcribing ? 'Transcribing...' : 'Searching...'}
+          </ThemedText>
         </View>
       )}
 
-      {!searching && results.length > 0 && (
-        <FlatList
-          data={results}
-          renderItem={renderFoodItem}
-          keyExtractor={(item) => item.id}
-          style={dynamicStyles.resultsList}
-          contentContainerStyle={dynamicStyles.resultsContent}
-        />
+      {!searching && !transcribing && filteredResults.length > 0 && (
+        <>
+          <View style={dynamicStyles.resultsHeader}>
+            <ThemedText style={dynamicStyles.resultsTitle}>Search Results</ThemedText>
+            <TouchableOpacity
+              style={[dynamicStyles.onlyToggle, onlyBranded && dynamicStyles.onlyToggleActive]}
+              onPress={() => setOnlyBranded((prev) => !prev)}
+            >
+              <ThemedText
+                style={[dynamicStyles.onlyToggleText, onlyBranded && dynamicStyles.onlyToggleTextActive]}
+              >
+                Only
+              </ThemedText>
+            </TouchableOpacity>
+          </View>
+          <FlatList
+            data={filteredResults}
+            renderItem={renderFoodItem}
+            keyExtractor={(item, index) => `${item.id}-${index}`}
+            style={dynamicStyles.resultsList}
+            contentContainerStyle={dynamicStyles.resultsContent}
+            keyboardShouldPersistTaps="handled"
+          />
+          {hasMore && (
+            <TouchableOpacity
+              onPress={loadMoreResults}
+              disabled={loadingMore}
+              style={dynamicStyles.showMoreButton}
+            >
+              <ThemedText style={dynamicStyles.showMoreText}>
+                {loadingMore ? 'Loading more...' : 'Show more results...'}
+              </ThemedText>
+            </TouchableOpacity>
+          )}
+        </>
       )}
 
-      {!searching && searchQuery && results.length === 0 && (
+      {!searching && !transcribing && searchQuery && filteredResults.length === 0 && (
         <View style={dynamicStyles.emptyState}>
           <ThemedText style={dynamicStyles.emptyText}>No results found</ThemedText>
           <ThemedText style={dynamicStyles.emptySubtext}>Try a different search term</ThemedText>
         </View>
       )}
 
-      {!searching && !searchQuery && (
+      {!searching && !transcribing && !searchQuery && (
         <View style={dynamicStyles.emptyState}>
           <ThemedText style={dynamicStyles.emptyText}>🔍 Search for food</ThemedText>
           <ThemedText style={dynamicStyles.emptySubtext}>
@@ -167,6 +371,17 @@ export default function FoodSearch() {
           </ThemedText>
         </View>
       )}
+
+      <MealSelectSheet
+        visible={!!mealSheetFood}
+        onClose={() => setMealSheetFood(null)}
+        onSelect={(meal) => {
+          if (mealSheetFood) {
+            addFoodToLog(mealSheetFood, meal);
+            setMealSheetFood(null);
+          }
+        }}
+      />
     </ThemedView>
   );
 }
@@ -193,12 +408,32 @@ const createStyles = (theme: typeof Colors.light) => StyleSheet.create({
   searchBox: {
     backgroundColor: theme.cardElevated,
     borderRadius: 12,
-    padding: 4,
+    paddingLeft: 12,
+    paddingRight: 4,
+    paddingVertical: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   searchInput: {
-    padding: 12,
+    flex: 1,
+    paddingVertical: 8,
+    paddingRight: 12,
     fontSize: 16,
     color: theme.text,
+  },
+  micButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'transparent',
+  },
+  micButtonActive: {
+    backgroundColor: theme.primary,
+  },
+  micButtonDisabled: {
+    opacity: 0.4,
   },
   loadingContainer: {
     flex: 1,
@@ -213,47 +448,80 @@ const createStyles = (theme: typeof Colors.light) => StyleSheet.create({
     flex: 1,
   },
   resultsContent: {
-    padding: 20,
-    paddingTop: 0,
+    paddingHorizontal: 20,
+    paddingBottom: 12,
+    gap: 12,
   },
-  foodItem: {
-    backgroundColor: theme.card,
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
+  resultsHeader: {
+    paddingHorizontal: 20,
+    paddingBottom: 12,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
+  resultsTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+  },
+  onlyToggle: {
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: theme.border,
+  },
+  onlyToggleActive: {
+    backgroundColor: theme.primary,
+    borderColor: theme.primary,
+  },
+  onlyToggleText: {
+    fontSize: 13,
+    color: theme.textSecondary,
+  },
+  onlyToggleTextActive: {
+    color: theme.background,
+    fontWeight: '600',
+  },
+  resultCard: {
+    backgroundColor: theme.card,
+    borderRadius: 18,
+    padding: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
   foodInfo: {
     flex: 1,
+    gap: 6,
+  },
+  resultTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
   foodName: {
     fontSize: 16,
     fontWeight: '600',
-    marginBottom: 4,
     color: theme.text,
+  },
+  verifiedBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 999,
+    backgroundColor: 'rgba(10,132,255,0.15)',
   },
   foodServing: {
-    fontSize: 12,
+    fontSize: 13,
     color: theme.textSecondary,
   },
-  foodNutrition: {
-    alignItems: 'flex-end',
-  },
-  foodCalories: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 4,
-    color: theme.text,
-  },
-  macros: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  macroText: {
-    fontSize: 10,
-    color: theme.textSecondary,
+  resultAddButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: theme.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   emptyState: {
     flex: 1,
@@ -272,4 +540,83 @@ const createStyles = (theme: typeof Colors.light) => StyleSheet.create({
     color: theme.textTertiary,
     textAlign: 'center',
   },
+  showMoreButton: {
+    paddingVertical: 16,
+    alignItems: 'center',
+  },
+  showMoreText: {
+    color: theme.primary,
+    fontWeight: '600',
+  },
 });
+
+const mealSheetStyles = StyleSheet.create({
+  backdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.35)',
+  },
+  sheet: {
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    padding: 24,
+    gap: 16,
+  },
+  handle: {
+    width: 50,
+    height: 5,
+    borderRadius: 999,
+    backgroundColor: 'rgba(255,255,255,0.3)',
+    alignSelf: 'center',
+  },
+  title: {
+    fontSize: 18,
+    fontWeight: '600',
+  },
+  mealButton: {
+    borderRadius: 16,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  mealLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+});
+
+const mealOptions: MealType[] = ['breakfast', 'lunch', 'dinner', 'snack'];
+
+function MealSelectSheet({
+  visible,
+  onClose,
+  onSelect,
+}: {
+  visible: boolean;
+  onClose: () => void;
+  onSelect: (meal: MealType) => void;
+}) {
+  const colorScheme = useColorScheme() ?? 'light';
+  const theme = Colors[colorScheme];
+
+  return (
+    <Modal transparent visible={visible} animationType="slide" onRequestClose={onClose}>
+      <TouchableOpacity style={mealSheetStyles.backdrop} activeOpacity={1} onPress={onClose} />
+      <ThemedView style={[mealSheetStyles.sheet, { backgroundColor: theme.card }]}>
+        <View style={mealSheetStyles.handle} />
+        <ThemedText style={mealSheetStyles.title}>Add to meal</ThemedText>
+        {mealOptions.map((meal) => (
+          <TouchableOpacity
+            key={meal}
+            style={[mealSheetStyles.mealButton, { backgroundColor: theme.cardElevated }]}
+            onPress={() => onSelect(meal)}
+          >
+            <MaterialIcons name="restaurant" size={20} color={theme.primary} />
+            <ThemedText style={mealSheetStyles.mealLabel}>{meal.charAt(0).toUpperCase() + meal.slice(1)}</ThemedText>
+          </TouchableOpacity>
+        ))}
+      </ThemedView>
+    </Modal>
+  );
+}

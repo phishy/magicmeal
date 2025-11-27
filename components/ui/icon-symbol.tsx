@@ -29,7 +29,7 @@ const MAPPING: IconMapping = {
   magnifyingglass: 'search',
   'barcode.viewfinder': 'qr-code-scanner',
   'camera.fill': 'photo-camera',
-  'camera.viewfinder': 'center-focus-strong',
+  'camera.viewfinder': 'center-focus-weak',
   'rectangle.portrait.and.arrow.right': 'logout',
   'trash.fill': 'delete',
   'photo.fill': 'collections',

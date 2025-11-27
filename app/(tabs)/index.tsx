@@ -66,8 +66,13 @@ export default function HomeScreen() {
   const handleRemoveMeal = useCallback(
     async (mealId: string) => {
       try {
-        await removeMealRecord(mealId);
-        mutate();
+        await mutate(
+          async (currentMeals) => {
+            await removeMealRecord(mealId);
+            return (currentMeals ?? []).filter((meal) => meal.id !== mealId);
+          },
+          { revalidate: false, populateCache: true, rollbackOnError: true }
+        );
       } catch (error) {
         console.error('Error removing meal:', error);
       }

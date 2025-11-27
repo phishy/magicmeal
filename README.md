@@ -2,6 +2,12 @@
 
 ![MagicMeal hero UI](img/hero-image.png)
 
+## 📷 Dashboard Preview
+
+Get a feel for the in-app experience with a look at the primary dashboard that surfaces calorie progress, macros, and recent weights at a glance.
+
+![MagicMeal dashboard UI](img/dashboard.png)
+
 A modern, AI-powered food tracking app built with React Native and Expo. Track your meals effortlessly with barcode scanning and AI photo recognition.
 
 ## ✨ Features

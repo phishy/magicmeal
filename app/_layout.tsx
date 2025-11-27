@@ -43,6 +43,7 @@ function RootNavigation() {
             <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
             <Stack.Screen name="tools/blood-pressure" options={{ title: 'Blood Pressure' }} />
             <Stack.Screen name="tools/weight" options={{ title: 'Weight' }} />
+            <Stack.Screen name="goals" options={{ title: 'Goals' }} />
           </Stack>
           <StatusBar style="auto" />
         </>

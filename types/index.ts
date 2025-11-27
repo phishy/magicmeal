@@ -111,3 +111,29 @@ export interface CalorieProgressCardProps {
   onPress?: () => void;
 }
 
+export type WeeklyGoalType = 'lose' | 'gain' | 'maintain';
+
+export type ActivityLevel = 'not_active' | 'lightly_active' | 'moderately_active' | 'very_active';
+
+export interface ProfileGoals {
+  startingWeight?: number;
+  startingWeightRecordedAt?: string;
+  startingWeightUnit?: WeightUnit;
+  goalWeight?: number;
+  goalWeightUnit?: WeightUnit;
+  weeklyGoalRate?: number;
+  weeklyGoalType?: WeeklyGoalType;
+  activityLevel?: ActivityLevel;
+}
+
+export interface ProfileGoalsRecord {
+  starting_weight: number | string | null;
+  starting_weight_recorded_at: string | null;
+  starting_weight_unit: WeightUnit | null;
+  goal_weight: number | string | null;
+  goal_weight_unit: WeightUnit | null;
+  weekly_goal_rate: number | string | null;
+  weekly_goal_type: WeeklyGoalType | null;
+  activity_level: ActivityLevel | null;
+}
+

@@ -67,6 +67,15 @@ export default function YouScreen() {
           <ThemedText style={styles.menuButtonText}>Go to Tools</ThemedText>
         </TouchableOpacity>
 
+        <TouchableOpacity style={styles.menuButton} onPress={() => router.push('/goals')}>
+          <IconSymbol name="flag.fill" size={20} color={theme.secondary} />
+          <View style={styles.menuButtonContent}>
+            <ThemedText style={styles.menuButtonText}>Goals</ThemedText>
+            <ThemedText style={styles.menuButtonCaption}>Edit weight and activity targets</ThemedText>
+          </View>
+          <IconSymbol name="chevron.right" size={16} color={theme.textSecondary} />
+        </TouchableOpacity>
+
         <TouchableOpacity style={styles.menuButton} onPress={() => setThemePickerVisible(true)}>
           <IconSymbol name="paintbrush.fill" size={20} color={theme.secondary} />
           <View style={styles.menuButtonContent}>

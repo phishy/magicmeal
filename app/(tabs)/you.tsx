@@ -4,6 +4,7 @@ import { useRouter } from 'expo-router';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { UserAvatar } from '@/components/user-avatar';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -43,7 +44,7 @@ export default function YouScreen() {
         </View>
 
         <View style={styles.card}>
-          <IconSymbol name="person.fill" size={24} color={theme.primary} />
+          <UserAvatar email={session?.user.email} size={56} />
           <View style={styles.cardText}>
             <ThemedText style={styles.cardTitle}>{session?.user.email ?? 'Unknown user'}</ThemedText>
             <ThemedText style={styles.cardDescription}>Email</ThemedText>

@@ -53,3 +53,9 @@ export interface WeightEntryRecord {
   created_at: string;
 }
 
+export interface UserAvatarData {
+  initials: string;
+  backgroundColor: string;
+  foregroundColor: string;
+}
+

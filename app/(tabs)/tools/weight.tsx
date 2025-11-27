@@ -1,30 +1,44 @@
-import { useCallback, useMemo, useState } from 'react';
+import { createOpenAI } from '@ai-sdk/openai';
+import { generateText } from 'ai';
+import * as DocumentPicker from 'expo-document-picker';
+import * as FileSystem from 'expo-file-system/legacy';
+import { useFocusEffect } from 'expo-router';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
   Dimensions,
+  Platform,
   ScrollView,
   StyleSheet,
   TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
-import { useFocusEffect } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { Svg, Polyline } from 'react-native-svg';
 import { Swipeable } from 'react-native-gesture-handler';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { Polyline, Svg } from 'react-native-svg';
 import useSWR from 'swr';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { createWeightEntries, createWeightEntry, fetchWeightEntries, removeWeightEntry } from '@/services/weight';
 import type { WeightEntry } from '@/types';
-import { IconSymbol } from '@/components/ui/icon-symbol';
-import { createWeightEntry, fetchWeightEntries, removeWeightEntry } from '@/services/weight';
 
 const CHART_HEIGHT = 160;
 const CHART_WIDTH = Dimensions.get('window').width - 48;
+const OPENAI_API_KEY = process.env.EXPO_PUBLIC_OPENAI_API_KEY;
+const OPENAI_MODEL = 'gpt-4o-mini'; // fastest low-latency OpenAI option available
+const openai = OPENAI_API_KEY ? createOpenAI({ apiKey: OPENAI_API_KEY }) : null;
+type DocumentResult = Awaited<ReturnType<typeof DocumentPicker.getDocumentAsync>>;
+type PickerAsset = DocumentPicker.DocumentPickerAsset;
+type ParserResponse = {
+  parser: string;
+  summary?: string;
+};
 
 export default function WeightTool() {
   const colorScheme = useColorScheme() ?? 'light';
@@ -33,6 +47,39 @@ export default function WeightTool() {
 
   const [weight, setWeight] = useState('');
   const [saving, setSaving] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [pickerAvailable, setPickerAvailable] = useState(true);
+  const canImport = pickerAvailable && Boolean(openai);
+  const importHelperText = useMemo(() => {
+    if (!pickerAvailable) {
+      return 'File import is not supported on this platform.';
+    }
+    if (!openai) {
+      return 'Set EXPO_PUBLIC_OPENAI_API_KEY to enable AI-powered imports.';
+    }
+    return null;
+  }, [pickerAvailable]);
+
+  useEffect(() => {
+    let mounted = true;
+    const checkAvailability = async () => {
+      try {
+        const available =
+          (await ((DocumentPicker as any).isAvailableAsync?.() ?? Promise.resolve(true))) ?? true;
+        if (mounted) {
+          setPickerAvailable(available);
+        }
+      } catch {
+        if (mounted) {
+          setPickerAvailable(false);
+        }
+      }
+    };
+    checkAvailability();
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   const {
     data: entries = [],
@@ -86,7 +133,7 @@ export default function WeightTool() {
       await createWeightEntry({ weight: weightNumber });
       setWeight('');
       mutate();
-    } catch (error) {
+    } catch {
       Alert.alert('Error', 'Failed to save weight. Try again.');
     } finally {
       setSaving(false);
@@ -98,12 +145,73 @@ export default function WeightTool() {
       try {
         await removeWeightEntry(id);
         mutate();
-      } catch (error) {
+      } catch {
         Alert.alert('Error', 'Failed to delete entry.');
       }
     },
     [mutate]
   );
+
+  const handleImportWeights = useCallback(async () => {
+    if (!pickerAvailable) {
+      Alert.alert('Import unavailable', 'This device does not support file picking.');
+      return;
+    }
+
+    if (!openai) {
+      Alert.alert(
+        'Missing configuration',
+        'Set EXPO_PUBLIC_OPENAI_API_KEY in your environment to enable importing.'
+      );
+      return;
+    }
+
+    let result: DocumentResult | null = null;
+    try {
+      result = await DocumentPicker.getDocumentAsync({
+        copyToCacheDirectory: true,
+        multiple: false,
+        type: ['text/*', 'application/json', 'application/octet-stream', '*/*'],
+      });
+    } catch (pickerError: any) {
+      console.warn('DocumentPicker error', pickerError);
+      Alert.alert('Import failed', 'Unable to open file picker on this device.');
+      return;
+    }
+
+    if (result.canceled || !result.assets?.length) {
+      return;
+    }
+
+    setImporting(true);
+    try {
+      const asset = result.assets[0] as PickerAsset;
+      const fileContent = await readPickedFile(asset);
+
+      const parsedEntries = await parseWeightFileUsingAI(fileContent, openai);
+
+      if (!parsedEntries.length) {
+        Alert.alert('No entries detected', 'Could not find any weights in that file.');
+        return;
+      }
+
+      await createWeightEntries(
+        parsedEntries.map((entry: { weight: number; unit?: string; recordedAt: string }) => ({
+          weight: entry.weight,
+          unit: entry.unit === 'kg' ? 'kg' : 'lb',
+          recordedAt: entry.recordedAt,
+        }))
+      );
+
+      Alert.alert('Imported', `Added ${parsedEntries.length} entries.`);
+      mutate();
+    } catch (error: any) {
+      console.error(error);
+      Alert.alert('Import failed', error.message ?? 'Unable to import this file.');
+    } finally {
+      setImporting(false);
+    }
+  }, [mutate, pickerAvailable]);
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
@@ -161,6 +269,24 @@ export default function WeightTool() {
               <ThemedText style={styles.saveButtonText}>Save Weight</ThemedText>
             )}
           </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.importButton}
+            onPress={handleImportWeights}
+            disabled={importing || !canImport}
+          >
+            <IconSymbol
+              name="tray.and.arrow.down"
+              size={18}
+              color={!canImport ? theme.textTertiary : importing ? theme.textTertiary : theme.primary}
+            />
+            <ThemedText style={styles.importButtonText}>
+              {importing ? 'Importing…' : 'Import from file'}
+            </ThemedText>
+          </TouchableOpacity>
+          {!!importHelperText && (
+            <ThemedText style={styles.importHelperText}>{importHelperText}</ThemedText>
+          )}
         </ThemedView>
 
         <ThemedView style={styles.entriesCard}>
@@ -178,7 +304,7 @@ export default function WeightTool() {
               </ThemedText>
             </View>
           ) : (
-            entries.map((entry) => (
+            entries.map((entry: WeightEntry) => (
               <Swipeable
                 key={entry.id}
                 renderRightActions={() => (
@@ -294,6 +420,26 @@ const createStyles = (theme: typeof Colors.light) =>
       fontSize: 16,
       fontWeight: '600',
     },
+    importButton: {
+      marginTop: 12,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: theme.border,
+      paddingVertical: 12,
+      paddingHorizontal: 12,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+    },
+    importButtonText: {
+      color: theme.primary,
+      fontWeight: '600',
+    },
+    importHelperText: {
+      marginTop: -4,
+      color: theme.textSecondary,
+      fontSize: 13,
+    },
     entriesCard: {
       padding: 20,
       borderRadius: 16,
@@ -350,4 +496,142 @@ const createStyles = (theme: typeof Colors.light) =>
       fontWeight: '600',
     },
   });
+
+async function parseWeightFileUsingAI(
+  fileContent: string,
+  aiClient: ReturnType<typeof createOpenAI>
+) {
+  const sample = fileContent.split(/\r?\n/).slice(0, 5).join('\n');
+  const parserSpec = await requestParserFromSample(sample, aiClient);
+  const rawEntries = runGeneratedParser(parserSpec.parser, fileContent);
+
+  if (!Array.isArray(rawEntries)) {
+    throw new Error('Generated parser must return an array of entries.');
+  }
+
+  return rawEntries
+    .map((entry: any) => ({
+      weight: typeof entry?.weight === 'number' ? entry.weight : Number(entry?.weight),
+      unit: entry?.unit ?? entry?.units ?? entry?.weightUnit ?? 'lb',
+      recordedAt: entry?.recordedAt ?? entry?.date ?? entry?.timestamp,
+    }))
+    .filter(
+      (entry) =>
+        typeof entry.recordedAt === 'string' &&
+        entry.recordedAt.length > 0 &&
+        typeof entry.weight === 'number' &&
+        !Number.isNaN(entry.weight)
+    );
+}
+
+async function requestParserFromSample(sample: string, aiClient: ReturnType<typeof createOpenAI>) {
+  const prompt = `
+You are a senior data engineer. I will provide the first few lines of a file that contains historical body-weight entries.
+You must infer the structure and return JSON with a plain JavaScript function that can parse the ENTIRE file.
+
+Requirements:
+- Respond ONLY with JSON following this schema:
+{
+  "parser": "function parseWeightLog(fileText) { ... }",
+  "summary": "One sentence describing the detected format"
+}
+- The parser must:
+  * Accept a single string argument \`fileText\`.
+  * Return an array of objects shaped like { weight: number, unit: 'lb' | 'kg', recordedAt: string }.
+  * Handle headers, blank lines, and common date formats. Convert dates to ISO 8601 strings (set time to 09:00:00 local if missing).
+  * Assume "lb" when units are missing.
+  * Use only vanilla JavaScript—no external libraries.
+  * Never access the network or global variables.
+
+Sample input (first ~5 lines only):
+"""
+${sample}
+"""
+`;
+
+  const { text } = await generateText({
+    model: aiClient(OPENAI_MODEL),
+    temperature: 0,
+    prompt,
+  });
+
+  let parsed: ParserResponse;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    parsed = tryParseLooseJson(text);
+    if (!parsed) {
+      console.warn('AI parser raw response:', text);
+      throw new Error('AI parser response was not valid JSON.');
+    }
+  }
+
+  if (!parsed?.parser || typeof parsed.parser !== 'string') {
+    throw new Error('AI response missing parser function.');
+  }
+
+  return parsed;
+}
+
+function runGeneratedParser(parserSource: string, fileContent: string) {
+  if (parserSource.length > 8000) {
+    throw new Error('AI parser response was unexpectedly long.');
+  }
+
+  try {
+    const runner = new Function(
+      'fileText',
+      `
+      "use strict";
+      ${parserSource}
+      if (typeof parseWeightLog !== 'function') {
+        throw new Error('Parser must define function parseWeightLog(fileText).');
+      }
+      const result = parseWeightLog(fileText);
+      return result;
+    `
+    );
+
+    return runner(fileContent);
+  } catch (error) {
+    throw new Error(
+      error instanceof Error ? error.message : 'Failed to execute the generated parser.'
+    );
+  }
+}
+
+function tryParseLooseJson(payload: string) {
+  const start = payload.indexOf('{');
+  const end = payload.lastIndexOf('}');
+  if (start === -1 || end === -1 || end <= start) {
+    return null;
+  }
+
+  const candidate = payload.slice(start, end + 1);
+  try {
+    return JSON.parse(candidate);
+  } catch {
+    return null;
+  }
+}
+
+async function readPickedFile(asset: PickerAsset) {
+  const canUseNativeFs =
+    Platform.OS !== 'web' && typeof (FileSystem as any)?.readAsStringAsync === 'function';
+  if (canUseNativeFs) {
+    const encoding = (FileSystem as any).EncodingType?.UTF8 ?? 'utf8';
+    return FileSystem.readAsStringAsync(asset.uri, { encoding });
+  }
+
+  const webFile = (asset as any).file;
+  if (webFile?.text) {
+    return webFile.text();
+  }
+
+  const response = await fetch(asset.uri);
+  if (!response.ok) {
+    throw new Error('Unable to load file contents.');
+  }
+  return response.text();
+}
 

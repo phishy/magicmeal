@@ -48,6 +48,24 @@ export async function createWeightEntry(input: WeightInput): Promise<WeightEntry
   return mapEntry(data);
 }
 
+export async function createWeightEntries(inputs: WeightInput[]) {
+  if (!inputs.length) {
+    return [];
+  }
+
+  const profileId = await getProfileIdOrThrow();
+  const payload = inputs.map((input) => ({
+    profile_id: profileId,
+    weight: input.weight,
+    unit: input.unit ?? 'lb',
+    recorded_at: input.recordedAt ?? new Date().toISOString(),
+  }));
+
+  const { data, error } = await supabase.from(TABLE).insert(payload).select('*');
+  if (error) throw error;
+  return data.map(mapEntry);
+}
+
 export async function removeWeightEntry(id: string) {
   const profileId = await getProfileIdOrThrow();
   const { error } = await supabase.from(TABLE).delete().eq('id', id).eq('profile_id', profileId);

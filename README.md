@@ -160,7 +160,7 @@ EXPO_PUBLIC_NUTRITIONIX_APP_KEY=your_key_here
 
 ## 📄 License
 
-MIT
+Affero
 
 ## 🤝 Contributing
 

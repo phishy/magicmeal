@@ -40,6 +40,8 @@ const MAPPING: IconMapping = {
   'tray.and.arrow.down': 'file-download',
   'drop.fill': 'opacity',
   'flame.fill': 'local-fire-department',
+  'flag.fill': 'flag',
+  'fork.knife': 'restaurant',
 } as IconMapping;
 
 /**

@@ -4,10 +4,6 @@
 
 A modern, AI-powered food tracking app built with React Native and Expo. Track your meals effortlessly with barcode scanning and AI photo recognition.
 
-## 🧠 AI Development Experiment
-
-MagicMeal doubles as an ongoing AI-first development experiment. We lean on Cursor cloud agents for day-to-day implementation work—they can open PRs, take ownership of GitHub issues, and even coordinate Supabase schema evolutions via the Supabase MCP integration. Copilot handles pull-request reviews for an automated second set of eyes, while comprehensive GitHub Actions checks keep merges safe. For database work, we spin up Supabase branches to preview schema changes end-to-end before shipping. This workflow lets us prototype quickly while keeping architectural decisions and quality controls auditable.
-
 ## ✨ Features
 
 - **📊 Daily Food Logging** - Track calories, protein, carbs, and fat
@@ -50,6 +46,22 @@ MagicMeal doubles as an ongoing AI-first development experiment. We lean on Curs
    The CLI uses `supabase/config.toml` and `supabase/migrations` to boot a local stack, apply migrations, and generate a `.env` file with the API URL and anon key. Copy those values into your Expo env file (see below) as `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_ANON_KEY`. Keep the Supabase services running in a separate terminal while developing. If you need to reapply schema changes, run `supabase migration up`.
 
 4. Press `i` for iOS simulator or `a` for Android emulator
+
+## 🧠 AI Development Experiment
+
+MagicMeal doubles as an ongoing AI-first development experiment. We lean on Cursor cloud agents for day-to-day implementation work—they can open PRs, take ownership of GitHub issues, and update Supabase schemas by editing migrations directly from the repo. Copilot handles pull-request reviews for an automated second set of eyes, while comprehensive GitHub Actions checks keep merges safe. For database work, we spin up Supabase branches to preview schema changes end-to-end before shipping. This workflow lets us prototype quickly while keeping architectural decisions and quality controls auditable.
+
+```mermaid
+flowchart TD
+    Idea[Issue / Spec] --> Agent[Cursor cloud agent]
+    Agent --> Code[Code changes + Supabase migrations]
+    Code --> PR[GitHub PR]
+    PR --> CopilotReview[Copilot review]
+    PR --> Actions[GitHub Actions checks]
+    CopilotReview --> Merge{Merge?}
+    Actions --> Merge
+    Merge --> Release[Expo build & Supabase branch rollout]
+```
 
 ## 📸 AI Photo Recognition Setup
 

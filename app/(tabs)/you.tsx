@@ -1,6 +1,6 @@
-import { Alert, StyleSheet, TouchableOpacity, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import { Alert, Platform, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -17,19 +17,30 @@ export default function YouScreen() {
   const { session } = useSession();
   const router = useRouter();
 
+  const executeSignOut = async () => {
+    try {
+      await signOut();
+      router.replace('/login');
+    } catch (error: any) {
+      Alert.alert('Error', error.message ?? 'Failed to sign out. Please try again.');
+    }
+  };
+
   const handleSignOut = () => {
+    if (Platform.OS === 'web') {
+      const confirmed = window.confirm('Are you sure you want to sign out?');
+      if (confirmed) {
+        executeSignOut();
+      }
+      return;
+    }
+
     Alert.alert('Sign out', 'Are you sure you want to sign out?', [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Sign out',
         style: 'destructive',
-        onPress: async () => {
-          try {
-            await signOut();
-          } catch (error: any) {
-            Alert.alert('Error', error.message ?? 'Failed to sign out. Please try again.');
-          }
-        },
+        onPress: executeSignOut,
       },
     ]);
   };

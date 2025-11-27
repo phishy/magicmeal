@@ -1,5 +1,9 @@
 import { createOpenAI } from '@ai-sdk/openai';
-import { generateText } from 'ai';
+import DateTimePicker, {
+  DateTimePickerAndroid,
+  DateTimePickerEvent,
+} from '@react-native-community/datetimepicker';
+import { generateObject } from 'ai';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import { useFocusEffect } from 'expo-router';
@@ -17,15 +21,22 @@ import {
 } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Polyline, Svg } from 'react-native-svg';
+import { Circle, Polyline, Svg } from 'react-native-svg';
 import useSWR from 'swr';
+import { z } from 'zod';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import { createWeightEntries, createWeightEntry, fetchWeightEntries, removeWeightEntry } from '@/services/weight';
+import type { WeightInput } from '@/services/weight';
+import {
+  createWeightEntries,
+  createWeightEntry,
+  fetchWeightEntries,
+  removeWeightEntry,
+} from '@/services/weight';
 import type { WeightEntry } from '@/types';
 
 const CHART_HEIGHT = 160;
@@ -35,10 +46,10 @@ const OPENAI_MODEL = 'gpt-4o-mini'; // fastest low-latency OpenAI option availab
 const openai = OPENAI_API_KEY ? createOpenAI({ apiKey: OPENAI_API_KEY }) : null;
 type DocumentResult = Awaited<ReturnType<typeof DocumentPicker.getDocumentAsync>>;
 type PickerAsset = DocumentPicker.DocumentPickerAsset;
-type ParserResponse = {
-  parser: string;
-  summary?: string;
-};
+const ParserResponseSchema = z.object({
+  parser: z.string(),
+  summary: z.string().optional(),
+});
 
 export default function WeightTool() {
   const colorScheme = useColorScheme() ?? 'light';
@@ -49,6 +60,14 @@ export default function WeightTool() {
   const [saving, setSaving] = useState(false);
   const [importing, setImporting] = useState(false);
   const [pickerAvailable, setPickerAvailable] = useState(true);
+  const [chartRange, setChartRange] = useState<'1w' | '1m' | '3m' | '1y' | 'all' | 'custom'>('1m');
+  const [customRange, setCustomRange] = useState<{ start: string; end: string } | null>(null);
+  const [pickerConfig, setPickerConfig] = useState<{
+    field: 'start' | 'end';
+    value: Date;
+    onChange: (event: DateTimePickerEvent, date?: Date) => void;
+  } | null>(null);
+  const [activePointIndex, setActivePointIndex] = useState<number | null>(null);
   const canImport = pickerAvailable && Boolean(openai);
   const importHelperText = useMemo(() => {
     if (!pickerAvailable) {
@@ -87,39 +106,140 @@ export default function WeightTool() {
     isLoading,
   } = useSWR<WeightEntry[]>('weight-entries', () => fetchWeightEntries(100));
 
+  const sortedEntries = useMemo(
+    () =>
+      [...entries].sort(
+        (a, b) => new Date(b.recordedAt).getTime() - new Date(a.recordedAt).getTime()
+      ),
+    [entries]
+  );
+
   useFocusEffect(
     useCallback(() => {
       mutate();
     }, [mutate])
   );
 
-  const recentEntries = useMemo(() => {
-    const sorted = [...entries].sort(
-      (a, b) => new Date(a.recordedAt).getTime() - new Date(b.recordedAt).getTime()
-    );
-    return sorted.slice(-7);
-  }, [entries]);
+  const chartEntries = useMemo(() => {
+    if (!sortedEntries.length) return [];
 
-  const chartPoints = useMemo(() => {
-    if (!recentEntries.length) {
-      return '';
+    if (chartRange === 'all') {
+      return [...sortedEntries].reverse();
     }
-    const weights = recentEntries.map((entry) => entry.weight);
+
+    if (chartRange === 'custom' && customRange?.start && customRange?.end) {
+      const startTime = new Date(customRange.start).getTime();
+      const endTime = new Date(customRange.end).getTime();
+      return sortedEntries
+        .filter((entry) => {
+          const ts = new Date(entry.recordedAt).getTime();
+          return ts >= startTime && ts <= endTime;
+        })
+        .reverse();
+    }
+
+    const lookbackDays = chartRange === '1w' ? 7 : chartRange === '1m' ? 30 : chartRange === '3m' ? 90 : 365;
+    const cutoff = Date.now() - lookbackDays * 24 * 60 * 60 * 1000;
+    return sortedEntries.filter((entry) => new Date(entry.recordedAt).getTime() >= cutoff).reverse();
+  }, [sortedEntries, chartRange, customRange]);
+
+  useEffect(() => {
+    if (chartEntries.length) {
+      setActivePointIndex(chartEntries.length - 1);
+    } else {
+      setActivePointIndex(null);
+    }
+  }, [chartEntries]);
+
+  const chartGeometry = useMemo(() => {
+    if (!chartEntries.length) {
+      return { path: '', coords: [] as { x: number; y: number; entry: WeightEntry }[] };
+    }
+
+    const weights = chartEntries.map((entry) => entry.weight);
     const minWeight = Math.min(...weights) - 2;
     const maxWeight = Math.max(...weights) + 2;
     const range = maxWeight - minWeight || 1;
     const stepX =
-      recentEntries.length > 1 ? CHART_WIDTH / (recentEntries.length - 1) : CHART_WIDTH / 2;
+      chartEntries.length > 1 ? CHART_WIDTH / (chartEntries.length - 1) : CHART_WIDTH / 2;
 
-    return recentEntries
-      .map((entry, index) => {
-        const x = recentEntries.length > 1 ? index * stepX : CHART_WIDTH / 2;
-        const normalized = (entry.weight - minWeight) / range;
-        const y = CHART_HEIGHT - normalized * CHART_HEIGHT;
-        return `${x},${y}`;
-      })
-      .join(' ');
-  }, [recentEntries]);
+    const coords = chartEntries.map((entry, index) => {
+      const x = chartEntries.length > 1 ? index * stepX : CHART_WIDTH / 2;
+      const normalized = (entry.weight - minWeight) / range;
+      const y = CHART_HEIGHT - normalized * CHART_HEIGHT;
+      return { x, y, entry };
+    });
+
+    return {
+      path: coords.map((point) => `${point.x},${point.y}`).join(' '),
+      coords,
+    };
+  }, [chartEntries]);
+
+  const xAxisLabels = useMemo(() => {
+    if (!chartEntries.length) return [];
+    const labelCount = Math.min(4, chartEntries.length);
+    if (labelCount === 1) {
+      return [
+        new Date(chartEntries[0].recordedAt).toLocaleDateString(undefined, {
+          month: 'short',
+          day: 'numeric',
+        }),
+      ];
+    }
+    const step = (chartEntries.length - 1) / (labelCount - 1);
+    return Array.from({ length: labelCount }, (_, index) => {
+      const entryIndex = Math.round(index * step);
+      const entry = chartEntries[Math.min(entryIndex, chartEntries.length - 1)];
+      return new Date(entry.recordedAt).toLocaleDateString(undefined, {
+        month: 'short',
+        day: 'numeric',
+      });
+    });
+  }, [chartEntries]);
+
+  const activeCoord =
+    activePointIndex !== null ? chartGeometry.coords[activePointIndex] : undefined;
+
+  const openDatePicker = useCallback(
+    (field: 'start' | 'end') => {
+      const currentDate = new Date(customRange?.[field] ?? Date.now());
+
+      const onChange = (_event: DateTimePickerEvent, date?: Date) => {
+        if (!date) return;
+        setCustomRange((prev) => {
+          const next = {
+            start: prev?.start ?? '',
+            end: prev?.end ?? '',
+          };
+          next[field] = date.toISOString();
+          if (next.start && next.end && new Date(next.start) > new Date(next.end)) {
+            Alert.alert('Custom range', 'Start date must be before end date.');
+            return prev ?? null;
+          }
+          return next;
+        });
+      };
+
+      if (Platform.OS === 'ios') {
+        setPickerConfig({
+          field,
+          value: currentDate,
+          onChange,
+        });
+      } else {
+        DateTimePickerAndroid.open({
+          mode: 'date',
+          display: 'calendar',
+          value: currentDate,
+          onChange,
+        });
+      }
+    },
+    [customRange]
+  );
+
+  const weeklyGroups = useMemo(() => groupEntriesByWeek(sortedEntries), [sortedEntries]);
 
   const handleSaveWeight = useCallback(async () => {
     const weightNumber = Number(weight);
@@ -196,7 +316,7 @@ export default function WeightTool() {
       }
 
       await createWeightEntries(
-        parsedEntries.map((entry: { weight: number; unit?: string; recordedAt: string }) => ({
+        parsedEntries.map((entry) => ({
           weight: entry.weight,
           unit: entry.unit === 'kg' ? 'kg' : 'lb',
           recordedAt: entry.recordedAt,
@@ -217,27 +337,136 @@ export default function WeightTool() {
     <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
       <ScrollView style={styles.container} contentContainerStyle={styles.content}>
         <ThemedView style={styles.graphCard}>
+          <View style={styles.rangeSelector}>
+            {(['1w', '1m', '3m', '1y', 'all', 'custom'] as const).map((range) => (
+              <TouchableOpacity
+                key={range}
+                style={[
+                  styles.rangeTab,
+                  chartRange === range && styles.rangeTabActive,
+                ]}
+                onPress={() => setChartRange(range)}
+              >
+                <ThemedText
+                  style={[
+                    styles.rangeTabLabel,
+                    chartRange === range && styles.rangeTabLabelActive,
+                  ]}
+                >
+                  {range === '1w'
+                    ? '1W'
+                    : range === '1m'
+                    ? '1M'
+                    : range === '3m'
+                    ? '3M'
+                    : range === '1y'
+                    ? '1Y'
+                    : range === 'all'
+                    ? 'All'
+                    : 'Custom'}
+                </ThemedText>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          {chartRange === 'custom' && (
+            <View style={styles.customRangeRow}>
+              <View style={styles.customInputContainer}>
+                <ThemedText style={styles.customLabel}>Start</ThemedText>
+                <TouchableOpacity
+                  style={styles.customInput}
+                  onPress={() => openDatePicker('start')}
+                >
+                  <ThemedText style={styles.customInputText}>
+                    {customRange?.start
+                      ? new Date(customRange.start).toLocaleDateString()
+                      : 'Select date'}
+                  </ThemedText>
+                </TouchableOpacity>
+              </View>
+              <View style={styles.customInputContainer}>
+                <ThemedText style={styles.customLabel}>End</ThemedText>
+                <TouchableOpacity style={styles.customInput} onPress={() => openDatePicker('end')}>
+                  <ThemedText style={styles.customInputText}>
+                    {customRange?.end
+                      ? new Date(customRange.end).toLocaleDateString()
+                      : 'Select date'}
+                  </ThemedText>
+                </TouchableOpacity>
+              </View>
+              <TouchableOpacity style={styles.clearCustomButton} onPress={() => setCustomRange(null)}>
+                <ThemedText style={styles.clearCustomLabel}>Clear</ThemedText>
+              </TouchableOpacity>
+            </View>
+          )}
+
           <View style={styles.graphHeader}>
             <View>
               <ThemedText type="title" style={styles.graphTitle}>
                 Weight
               </ThemedText>
               <ThemedText style={styles.graphSubtitle}>
-                Last {recentEntries.length || 'No'} entries
+                {getRangeSubtitle(chartRange)}
               </ThemedText>
             </View>
           </View>
 
-          {recentEntries.length === 0 ? (
+          {chartEntries.length === 0 ? (
             <View style={styles.emptyGraph}>
               <ThemedText style={styles.emptyGraphText}>
                 Log weights to see your trend line here.
               </ThemedText>
             </View>
           ) : (
-            <Svg width={CHART_WIDTH} height={CHART_HEIGHT}>
-              <Polyline points={chartPoints} stroke={theme.primary} strokeWidth={3} fill="none" />
-            </Svg>
+            <View style={styles.chartArea}>
+              {activeCoord && (
+                <View
+                  pointerEvents="none"
+                  style={[
+                    styles.chartTooltip,
+                    {
+                      left: Math.min(Math.max(activeCoord.x - 60, 0), CHART_WIDTH - 120),
+                    },
+                  ]}
+                >
+                  <ThemedText style={styles.chartTooltipValue}>
+                    {activeCoord.entry.weight.toFixed(1)} {activeCoord.entry.unit ?? 'lb'}
+                  </ThemedText>
+                  <ThemedText style={styles.chartTooltipDate}>
+                    {new Date(activeCoord.entry.recordedAt).toLocaleString(undefined, {
+                      month: 'short',
+                      day: 'numeric',
+                      hour: 'numeric',
+                      minute: '2-digit',
+                    })}
+                  </ThemedText>
+                </View>
+              )}
+              <Svg width={CHART_WIDTH} height={CHART_HEIGHT}>
+                <Polyline points={chartGeometry.path} stroke={theme.primary} strokeWidth={3} fill="none" />
+                {chartGeometry.coords.map((point, index) => (
+                  <Circle
+                    key={point.entry.id}
+                    cx={point.x}
+                    cy={point.y}
+                    r={activePointIndex === index ? 6 : 4}
+                    stroke="#fff"
+                    strokeWidth={1.5}
+                    fill={activePointIndex === index ? theme.primary : theme.primary}
+                    onPressIn={() => setActivePointIndex(index)}
+                  />
+                ))}
+              </Svg>
+            </View>
+          )}
+          {chartEntries.length > 0 && (
+            <View style={styles.xAxisRow}>
+              {xAxisLabels.map((label, index) => (
+                <ThemedText key={`${label}-${index}`} style={styles.xAxisLabel}>
+                  {label}
+                </ThemedText>
+              ))}
+            </View>
           )}
         </ThemedView>
 
@@ -297,50 +526,75 @@ export default function WeightTool() {
             <View style={styles.emptyList}>
               <ThemedText style={styles.emptyListText}>Loading entries...</ThemedText>
             </View>
-          ) : entries.length === 0 ? (
+          ) : weeklyGroups.length === 0 ? (
             <View style={styles.emptyList}>
               <ThemedText style={styles.emptyListText}>
                 No weight entries yet. Start logging above.
               </ThemedText>
             </View>
           ) : (
-            entries.map((entry: WeightEntry) => (
-              <Swipeable
-                key={entry.id}
-                renderRightActions={() => (
-                  <View style={styles.swipeActions}>
-                    <TouchableOpacity
-                      style={[styles.swipeButton, styles.deleteButton]}
-                      onPress={() => handleRemoveEntry(entry.id)}
-                    >
-                      <IconSymbol size={20} name="trash.fill" color="#fff" />
-                      <ThemedText style={styles.swipeButtonText}>Delete</ThemedText>
-                    </TouchableOpacity>
-                  </View>
-                )}
-              >
-                <View style={styles.entryItem}>
-                  <View>
-                    <ThemedText style={styles.entryValues}>
-                      {entry.weight}
-                      <ThemedText style={styles.entryUnit}> {entry.unit ?? 'lb'}</ThemedText>
-                    </ThemedText>
-                  </View>
-                  <ThemedText style={styles.entryTimestamp}>
-                    {new Date(entry.recordedAt).toLocaleString(undefined, {
-                      weekday: 'short',
-                      month: 'short',
-                      day: 'numeric',
-                      hour: 'numeric',
-                      minute: '2-digit',
-                    })}
+            weeklyGroups.map((group) => (
+              <View key={group.key} style={styles.weekSection}>
+                <View style={styles.weekHeader}>
+                  <ThemedText style={styles.weekLabel}>{group.label}</ThemedText>
+                  <ThemedText style={styles.weekAverage}>
+                    {group.average.toFixed(1)} lbs avg
                   </ThemedText>
                 </View>
-              </Swipeable>
+                {group.entries.map((entry) => (
+                  <Swipeable
+                    key={entry.id}
+                    renderRightActions={() => (
+                      <View style={styles.swipeActions}>
+                        <TouchableOpacity
+                          style={[styles.swipeButton, styles.deleteButton]}
+                          onPress={() => handleRemoveEntry(entry.id)}
+                        >
+                          <IconSymbol size={20} name="trash.fill" color="#fff" />
+                          <ThemedText style={styles.swipeButtonText}>Delete</ThemedText>
+                        </TouchableOpacity>
+                      </View>
+                    )}
+                  >
+                    <View style={styles.entryItem}>
+                      <View>
+                        <ThemedText style={styles.entryValues}>
+                          {entry.weight}
+                          <ThemedText style={styles.entryUnit}> {entry.unit ?? 'lb'}</ThemedText>
+                        </ThemedText>
+                        <ThemedText style={styles.entrySubText}>
+                          {new Date(entry.recordedAt).toLocaleTimeString(undefined, {
+                            hour: 'numeric',
+                            minute: '2-digit',
+                          })}
+                        </ThemedText>
+                      </View>
+                      <ThemedText style={styles.entryTimestamp}>
+                        {new Date(entry.recordedAt).toLocaleDateString(undefined, {
+                          weekday: 'short',
+                          month: 'short',
+                          day: 'numeric',
+                        })}
+                      </ThemedText>
+                    </View>
+                  </Swipeable>
+                ))}
+              </View>
             ))
           )}
         </ThemedView>
       </ScrollView>
+      {Platform.OS === 'ios' && pickerConfig && (
+        <DateTimePicker
+          mode="date"
+          display="spinner"
+          value={pickerConfig.value}
+          onChange={(event, date) => {
+            pickerConfig.onChange(event, date);
+          }}
+          style={styles.iosPicker}
+        />
+      )}
     </SafeAreaView>
   );
 }
@@ -355,9 +609,121 @@ const createStyles = (theme: typeof Colors.light) =>
       borderRadius: 16,
       backgroundColor: theme.card,
     },
+    chartArea: {
+      width: CHART_WIDTH,
+      height: CHART_HEIGHT,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    chartTooltip: {
+      position: 'absolute',
+      top: 8,
+      width: 120,
+      padding: 8,
+      borderRadius: 10,
+      backgroundColor: theme.cardElevated,
+      borderWidth: 1,
+      borderColor: theme.border,
+      zIndex: 2,
+    },
+    chartTooltipValue: {
+      fontWeight: '700',
+      fontSize: 16,
+    },
+    chartTooltipDate: {
+      fontSize: 12,
+      color: theme.textSecondary,
+      marginTop: 2,
+    },
+    xAxisRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      width: '100%',
+      marginTop: 12,
+      paddingHorizontal: 4,
+    },
+    xAxisLabel: {
+      fontSize: 12,
+      color: theme.textSecondary,
+    },
     graphHeader: {
       width: '100%',
       marginBottom: 12,
+    },
+    rangeSelector: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 8,
+      marginBottom: 12,
+    },
+    rangeTab: {
+      paddingVertical: 6,
+      paddingHorizontal: 12,
+      borderRadius: 999,
+      borderWidth: 1,
+      borderColor: theme.border,
+    },
+    rangeTabActive: {
+      backgroundColor: theme.primary,
+      borderColor: theme.primary,
+    },
+    rangeTabLabel: {
+      fontSize: 13,
+      color: theme.textSecondary,
+    },
+    rangeTabLabelActive: {
+      color: '#fff',
+      fontWeight: '600',
+    },
+    customRangeRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+      marginBottom: 12,
+    },
+    customInputContainer: {
+      flex: 1,
+    },
+    customLabel: {
+      fontSize: 12,
+      color: theme.textSecondary,
+      marginBottom: 4,
+    },
+    customInput: {
+      borderWidth: 1,
+      borderColor: theme.border,
+      borderRadius: 8,
+      paddingHorizontal: 10,
+      paddingVertical: 8,
+      color: theme.text,
+      backgroundColor: theme.cardElevated,
+      fontSize: 14,
+    },
+    customInputText: {
+      color: theme.text,
+    },
+    applyCustomButton: {
+      paddingVertical: 10,
+      paddingHorizontal: 16,
+      backgroundColor: theme.primary,
+      borderRadius: 10,
+      alignSelf: 'flex-end',
+    },
+    applyCustomLabel: {
+      color: '#fff',
+      fontWeight: '600',
+    },
+    clearCustomButton: {
+      paddingVertical: 8,
+      paddingHorizontal: 12,
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: theme.border,
+      alignSelf: 'flex-end',
+    },
+    clearCustomLabel: {
+      color: theme.textSecondary,
+      fontSize: 13,
     },
     graphTitle: {
       fontSize: 24,
@@ -446,6 +812,27 @@ const createStyles = (theme: typeof Colors.light) =>
       backgroundColor: theme.card,
       gap: 12,
     },
+    weekSection: {
+      marginBottom: 16,
+    },
+    weekHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 8,
+      backgroundColor: theme.cardElevated,
+      paddingVertical: 8,
+      paddingHorizontal: 12,
+      borderRadius: 10,
+    },
+    weekLabel: {
+      fontSize: 16,
+      fontWeight: '700',
+    },
+    weekAverage: {
+      fontSize: 14,
+      color: theme.textSecondary,
+    },
     emptyList: {
       paddingVertical: 24,
       alignItems: 'center',
@@ -464,6 +851,10 @@ const createStyles = (theme: typeof Colors.light) =>
     entryValues: {
       fontSize: 18,
       fontWeight: '600',
+    },
+    entrySubText: {
+      color: theme.textTertiary,
+      fontSize: 12,
     },
     entryUnit: {
       fontSize: 14,
@@ -495,6 +886,9 @@ const createStyles = (theme: typeof Colors.light) =>
       fontSize: 12,
       fontWeight: '600',
     },
+    iosPicker: {
+      backgroundColor: theme.card,
+    },
   });
 
 async function parseWeightFileUsingAI(
@@ -510,18 +904,8 @@ async function parseWeightFileUsingAI(
   }
 
   return rawEntries
-    .map((entry: any) => ({
-      weight: typeof entry?.weight === 'number' ? entry.weight : Number(entry?.weight),
-      unit: entry?.unit ?? entry?.units ?? entry?.weightUnit ?? 'lb',
-      recordedAt: entry?.recordedAt ?? entry?.date ?? entry?.timestamp,
-    }))
-    .filter(
-      (entry) =>
-        typeof entry.recordedAt === 'string' &&
-        entry.recordedAt.length > 0 &&
-        typeof entry.weight === 'number' &&
-        !Number.isNaN(entry.weight)
-    );
+    .map((entry) => normalizeParsedEntry(entry))
+    .filter((entry): entry is WeightInput => Boolean(entry));
 }
 
 async function requestParserFromSample(sample: string, aiClient: ReturnType<typeof createOpenAI>) {
@@ -549,28 +933,18 @@ ${sample}
 """
 `;
 
-  const { text } = await generateText({
+  const { object } = await generateObject({
     model: aiClient(OPENAI_MODEL),
     temperature: 0,
+    schema: ParserResponseSchema,
     prompt,
   });
 
-  let parsed: ParserResponse;
-  try {
-    parsed = JSON.parse(text);
-  } catch {
-    parsed = tryParseLooseJson(text);
-    if (!parsed) {
-      console.warn('AI parser raw response:', text);
-      throw new Error('AI parser response was not valid JSON.');
-    }
-  }
-
-  if (!parsed?.parser || typeof parsed.parser !== 'string') {
+  if (!object?.parser) {
     throw new Error('AI response missing parser function.');
   }
 
-  return parsed;
+  return object;
 }
 
 function runGeneratedParser(parserSource: string, fileContent: string) {
@@ -600,19 +974,79 @@ function runGeneratedParser(parserSource: string, fileContent: string) {
   }
 }
 
-function tryParseLooseJson(payload: string) {
-  const start = payload.indexOf('{');
-  const end = payload.lastIndexOf('}');
-  if (start === -1 || end === -1 || end <= start) {
+function normalizeParsedEntry(data: any): WeightInput | null {
+  const weightValue =
+    typeof data?.weight === 'number'
+      ? data.weight
+      : data?.weight
+      ? Number(String(data.weight).replace(/[^\d.-]/g, ''))
+      : data?.value
+      ? Number(String(data.value).replace(/[^\d.-]/g, ''))
+      : undefined;
+
+  if (typeof weightValue !== 'number' || Number.isNaN(weightValue) || weightValue <= 0) {
     return null;
   }
 
-  const candidate = payload.slice(start, end + 1);
-  try {
-    return JSON.parse(candidate);
-  } catch {
+  const unitRaw =
+    data?.unit ?? data?.units ?? data?.weightUnit ?? data?.unitOfMeasure ?? data?.measurement;
+  const unit = typeof unitRaw === 'string' && unitRaw.toLowerCase().includes('kg') ? 'kg' : 'lb';
+
+  const recordedAtRaw =
+    data?.recordedAt ??
+    data?.date ??
+    data?.timestamp ??
+    data?.datetime ??
+    data?.day ??
+    data?.time ??
+    data?.enteredAt;
+
+  const recordedAt = normalizeDateValue(recordedAtRaw);
+  if (!recordedAt) {
     return null;
   }
+
+  return {
+    weight: Number(weightValue.toFixed(1)),
+    unit,
+    recordedAt,
+  };
+}
+
+function normalizeDateValue(value: unknown) {
+  if (!value) return null;
+
+  const coerceDate = (input: Date) => {
+    const hasTime = typeof value === 'string' && /\d{1,2}:\d{2}/.test(value);
+    if (!hasTime) {
+      input.setHours(9, 0, 0, 0);
+    }
+    return input.toISOString();
+  };
+
+  if (value instanceof Date) {
+    return coerceDate(new Date(value.getTime()));
+  }
+
+  if (typeof value === 'number') {
+    const fromNumber = new Date(value);
+    return Number.isNaN(fromNumber.getTime()) ? null : coerceDate(fromNumber);
+  }
+
+  const text = String(value).trim();
+  if (!text.length) return null;
+
+  let candidate = text;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(text)) {
+    candidate = `${text}T09:00:00`;
+  }
+
+  const date = new Date(candidate);
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+
+  return coerceDate(date);
 }
 
 async function readPickedFile(asset: PickerAsset) {
@@ -633,5 +1067,90 @@ async function readPickedFile(asset: PickerAsset) {
     throw new Error('Unable to load file contents.');
   }
   return response.text();
+}
+
+function groupEntriesByWeek(entries: WeightEntry[]) {
+  const map = new Map<string, WeightEntry[]>();
+  entries.forEach((entry) => {
+    const weekStart = getWeekStart(new Date(entry.recordedAt));
+    const key = weekStart.toISOString();
+    if (!map.has(key)) {
+      map.set(key, []);
+    }
+    map.get(key)!.push(entry);
+  });
+
+  const nowWeekStart = getWeekStart(new Date());
+  const lastWeekStart = new Date(nowWeekStart);
+  lastWeekStart.setDate(lastWeekStart.getDate() - 7);
+
+  return Array.from(map.entries())
+    .sort((a, b) => new Date(b[0]).getTime() - new Date(a[0]).getTime())
+    .map(([key, groupEntries]) => {
+      const weekStart = new Date(key);
+      const label = formatWeekLabel(weekStart, nowWeekStart, lastWeekStart);
+      const average =
+        groupEntries.reduce((sum, entry) => sum + entry.weight, 0) / groupEntries.length;
+      const orderedEntries = groupEntries.sort(
+        (a, b) => new Date(b.recordedAt).getTime() - new Date(a.recordedAt).getTime()
+      );
+
+      return {
+        key,
+        label,
+        average: Number(average.toFixed(1)),
+        entries: orderedEntries,
+      };
+    });
+}
+
+function getWeekStart(date: Date) {
+  const result = new Date(date);
+  const day = result.getDay(); // 0 Sunday
+  result.setHours(0, 0, 0, 0);
+  result.setDate(result.getDate() - day);
+  return result;
+}
+
+function formatWeekLabel(weekStart: Date, currentWeekStart: Date, lastWeekStart: Date) {
+  if (weekStart.getTime() === currentWeekStart.getTime()) {
+    return 'This Week';
+  }
+  if (weekStart.getTime() === lastWeekStart.getTime()) {
+    return 'Last Week';
+  }
+  return formatWeekRange(weekStart);
+}
+
+function formatWeekRange(weekStart: Date) {
+  const weekEnd = new Date(weekStart);
+  weekEnd.setDate(weekEnd.getDate() + 6);
+
+  const monthDayFormatter = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' });
+  const dayFormatter = new Intl.DateTimeFormat(undefined, { day: 'numeric' });
+  const startLabel = monthDayFormatter.format(weekStart);
+  const sameMonth = weekStart.getMonth() === weekEnd.getMonth();
+  const endLabel = sameMonth ? dayFormatter.format(weekEnd) : monthDayFormatter.format(weekEnd);
+
+  return `${startLabel} – ${endLabel}`;
+}
+
+function getRangeSubtitle(range: '1w' | '1m' | '3m' | '1y' | 'all' | 'custom') {
+  switch (range) {
+    case '1w':
+      return 'Last 7 days';
+    case '1m':
+      return 'Last 30 days';
+    case '3m':
+      return 'Last 90 days';
+    case '1y':
+      return 'Last 365 days';
+    case 'all':
+      return 'All entries';
+    case 'custom':
+      return 'Custom range';
+    default:
+      return '';
+  }
 }
 

@@ -16,9 +16,9 @@ import { z } from 'zod';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import WeightTrendChart from '@/components/WeightTrendChart';
 import { IconSymbol } from '@/components/ui/icon-symbol';
-import { Colors } from '@/constants/theme';
+import WeightTrendChart from '@/components/WeightTrendChart';
+import { Colors, type Theme } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import type { WeightInput } from '@/services/weight';
 import { createWeightEntries, fetchWeightEntries, removeWeightEntry } from '@/services/weight';
@@ -123,6 +123,13 @@ export default function WeightTool() {
     const cutoff = Date.now() - lookbackDays * 24 * 60 * 60 * 1000;
     return sortedEntries.filter((entry) => new Date(entry.recordedAt).getTime() >= cutoff).reverse();
   }, [sortedEntries, chartRange, customRange]);
+
+  const netChange = useMemo(() => {
+    if (chartEntries.length < 2) return 0;
+    const first = chartEntries[0].weight;
+    const last = chartEntries[chartEntries.length - 1].weight;
+    return Number((last - first).toFixed(1));
+  }, [chartEntries]);
 
   const openDatePicker = useCallback(
     (field: 'start' | 'end') => {
@@ -241,10 +248,20 @@ export default function WeightTool() {
     <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
       <ScrollView style={styles.container} contentContainerStyle={styles.content}>
         <ThemedView style={styles.graphCard}>
+        <View style={styles.chartHeaderRow}>
+            <View>
+              <ThemedText style={styles.chartTitle}>Weight</ThemedText>
+              <ThemedText style={styles.chartSubtitle}>{getRangeSubtitle(chartRange)}</ThemedText>
+            </View>
+            <View style={styles.netChangePill}>
+              <ThemedText style={styles.netChangeLabel}>Change</ThemedText>
+              <ThemedText style={styles.netChangeValue}>{formatNetChange(netChange)}</ThemedText>
+            </View>
+          </View>
           <WeightTrendChart
             entries={chartEntries}
-            title="Weight"
-            subtitle={getRangeSubtitle(chartRange)}
+            title=""
+            subtitle=""
             emptyMessage="Log weights to see your trend line here."
             height={CHART_HEIGHT}
             wrapInCard={false}
@@ -367,7 +384,7 @@ export default function WeightTool() {
                           style={[styles.swipeButton, styles.deleteButton]}
                           onPress={() => handleRemoveEntry(entry.id)}
                         >
-                          <IconSymbol size={20} name="trash.fill" color="#fff" />
+                          <IconSymbol size={20} name="trash.fill" color={theme.onDanger} />
                           <ThemedText style={styles.swipeButtonText}>Delete</ThemedText>
                         </TouchableOpacity>
                       </View>
@@ -416,7 +433,7 @@ export default function WeightTool() {
   );
 }
 
-const createStyles = (theme: typeof Colors.light) =>
+const createStyles = (theme: Theme) =>
   StyleSheet.create({
     safeArea: { flex: 1 },
     container: { flex: 1 },
@@ -425,6 +442,37 @@ const createStyles = (theme: typeof Colors.light) =>
       padding: 20,
       borderRadius: 16,
       backgroundColor: theme.card,
+    },
+    chartHeaderRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 12,
+    },
+    chartTitle: {
+      fontSize: 20,
+      fontWeight: '600',
+    },
+    chartSubtitle: {
+      color: theme.textSecondary,
+      fontSize: 13,
+      marginTop: 4,
+    },
+    netChangePill: {
+      backgroundColor: theme.cardElevated,
+      paddingHorizontal: 16,
+      paddingVertical: 8,
+      borderRadius: 999,
+      alignItems: 'flex-start',
+    },
+    netChangeLabel: {
+      fontSize: 12,
+      color: theme.textSecondary,
+    },
+    netChangeValue: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: theme.text,
     },
     rangeSelector: {
       flexDirection: 'row',
@@ -448,7 +496,7 @@ const createStyles = (theme: typeof Colors.light) =>
       color: theme.textSecondary,
     },
     rangeTabLabelActive: {
-      color: '#fff',
+      color: theme.onPrimary,
       fontWeight: '600',
     },
     customRangeRow: {
@@ -486,7 +534,7 @@ const createStyles = (theme: typeof Colors.light) =>
       alignSelf: 'flex-end',
     },
     applyCustomLabel: {
-      color: '#fff',
+      color: theme.onPrimary,
       fontWeight: '600',
     },
     clearCustomButton: {
@@ -537,7 +585,7 @@ const createStyles = (theme: typeof Colors.light) =>
       alignItems: 'center',
     },
     saveButtonText: {
-      color: '#fff',
+      color: theme.onPrimary,
       fontSize: 16,
       fontWeight: '600',
     },
@@ -637,7 +685,7 @@ const createStyles = (theme: typeof Colors.light) =>
       backgroundColor: theme.danger,
     },
     swipeButtonText: {
-      color: '#fff',
+      color: theme.onDanger,
       fontSize: 12,
       fontWeight: '600',
     },
@@ -907,5 +955,11 @@ function getRangeSubtitle(range: '1w' | '1m' | '3m' | '1y' | 'all' | 'custom') {
     default:
       return '';
   }
+}
+
+function formatNetChange(delta: number) {
+  if (!delta) return '0 lb';
+  const sign = delta > 0 ? '+' : '';
+  return `${sign}${delta} lb`;
 }
 

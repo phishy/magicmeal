@@ -1,4 +1,5 @@
-import { Alert, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { useState } from 'react';
+import { ActivityIndicator, Alert, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 
@@ -11,25 +12,35 @@ import { useSession } from '@/providers/SessionProvider';
 import { signOut } from '@/services/auth';
 
 export default function YouScreen() {
+  const [signingOut, setSigningOut] = useState(false);
   const colorScheme = useColorScheme() ?? 'light';
   const theme = Colors[colorScheme];
   const styles = createStyles(theme);
   const { session } = useSession();
   const router = useRouter();
 
+  const performSignOut = async () => {
+    try {
+      setSigningOut(true);
+      await signOut();
+    } catch (error: any) {
+      Alert.alert('Error', error.message ?? 'Failed to sign out. Please try again.');
+    } finally {
+      setSigningOut(false);
+    }
+  };
+
   const handleSignOut = () => {
+    if (signingOut) {
+      return;
+    }
+
     Alert.alert('Sign out', 'Are you sure you want to sign out?', [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Sign out',
         style: 'destructive',
-        onPress: async () => {
-          try {
-            await signOut();
-          } catch (error: any) {
-            Alert.alert('Error', error.message ?? 'Failed to sign out. Please try again.');
-          }
-        },
+        onPress: performSignOut,
       },
     ]);
   };
@@ -55,9 +66,16 @@ export default function YouScreen() {
           <ThemedText style={styles.menuButtonText}>Go to Tools</ThemedText>
         </TouchableOpacity>
 
-        <TouchableOpacity style={[styles.menuButton, styles.signOutButton]} onPress={handleSignOut}>
+        <TouchableOpacity
+          style={[styles.menuButton, styles.signOutButton, signingOut && styles.signOutButtonDisabled]}
+          onPress={handleSignOut}
+          disabled={signingOut}
+        >
           <IconSymbol name="rectangle.portrait.and.arrow.right" size={20} color={theme.warning} />
-          <ThemedText style={[styles.menuButtonText, styles.signOutButtonText]}>Sign Out</ThemedText>
+          <ThemedText style={[styles.menuButtonText, styles.signOutButtonText]}>
+            {signingOut ? 'Signing Out...' : 'Sign Out'}
+          </ThemedText>
+          {signingOut && <ActivityIndicator size="small" color={theme.warning} />}
         </TouchableOpacity>
       </ThemedView>
     </SafeAreaView>
@@ -116,6 +134,9 @@ const createStyles = (theme: typeof Colors.light) =>
     },
     signOutButton: {
       borderColor: theme.warning,
+    },
+    signOutButtonDisabled: {
+      opacity: 0.7,
     },
     signOutButtonText: {
       color: theme.warning,

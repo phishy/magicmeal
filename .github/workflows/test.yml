@@ -25,4 +25,9 @@ jobs:
 
       - name: Build web bundle
         run: npm run web:build
+        env:
+          EXPO_PUBLIC_OPENAI_API_KEY: ${{ secrets.EXPO_PUBLIC_OPENAI_API_KEY }}
+          EXPO_PUBLIC_SERVICE_ROLE_KEY: ${{ secrets.EXPO_PUBLIC_SERVICE_ROLE_KEY }}
+          EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
+          EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}
 

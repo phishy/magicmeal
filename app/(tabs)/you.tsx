@@ -56,7 +56,7 @@ export default function YouScreen() {
         </TouchableOpacity>
 
         <TouchableOpacity style={[styles.menuButton, styles.signOutButton]} onPress={handleSignOut}>
-          <IconSymbol name="rectangle.portrait.and.arrow.right" size={20} color={theme.danger} />
+          <IconSymbol name="rectangle.portrait.and.arrow.right" size={20} color={theme.warning} />
           <ThemedText style={[styles.menuButtonText, styles.signOutButtonText]}>Sign Out</ThemedText>
         </TouchableOpacity>
       </ThemedView>
@@ -115,10 +115,10 @@ const createStyles = (theme: typeof Colors.light) =>
       color: theme.text,
     },
     signOutButton: {
-      borderColor: theme.danger,
+      borderColor: theme.warning,
     },
     signOutButtonText: {
-      color: theme.danger,
+      color: theme.warning,
       fontWeight: '600',
     },
   });

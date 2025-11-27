@@ -15,8 +15,8 @@ import {
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Colors } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import type { Theme } from '@/constants/theme';
+import { useAppTheme } from '@/providers/ThemePreferenceProvider';
 import { createMeal, mapFoodToMealInput } from '@/services/meals';
 import type { FoodItem, MealType } from '@/types';
 
@@ -33,8 +33,7 @@ export default function FoodSearch() {
   const [onlyBranded, setOnlyBranded] = useState(false);
   const [mealSheetFood, setMealSheetFood] = useState<FoodItem | null>(null);
   const router = useRouter();
-  const colorScheme = useColorScheme() ?? 'light';
-  const theme = Colors[colorScheme];
+  const { theme } = useAppTheme();
   const openAiKey = process.env.EXPO_PUBLIC_OPENAI_API_KEY;
   const PAGE_SIZE = 20;
 
@@ -386,7 +385,7 @@ export default function FoodSearch() {
   );
 }
 
-const createStyles = (theme: typeof Colors.light) => StyleSheet.create({
+const createStyles = (theme: Theme) => StyleSheet.create({
   container: {
     flex: 1,
   },
@@ -597,8 +596,7 @@ function MealSelectSheet({
   onClose: () => void;
   onSelect: (meal: MealType) => void;
 }) {
-  const colorScheme = useColorScheme() ?? 'light';
-  const theme = Colors[colorScheme];
+  const { theme } = useAppTheme();
 
   return (
     <Modal transparent visible={visible} animationType="slide" onRequestClose={onClose}>

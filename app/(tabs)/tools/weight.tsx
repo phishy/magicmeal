@@ -18,8 +18,8 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import WeightTrendChart from '@/components/WeightTrendChart';
-import { Colors, type Theme } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import type { Theme } from '@/constants/theme';
+import { useAppTheme } from '@/providers/ThemePreferenceProvider';
 import type { WeightInput } from '@/services/weight';
 import { createWeightEntries, fetchWeightEntries, removeWeightEntry } from '@/services/weight';
 import type { WeightEntry } from '@/types';
@@ -36,8 +36,7 @@ const ParserResponseSchema = z.object({
 });
 
 export default function WeightTool() {
-  const colorScheme = useColorScheme() ?? 'light';
-  const theme = Colors[colorScheme];
+  const { theme } = useAppTheme();
   const styles = useMemo(() => createStyles(theme), [theme]);
 
   const [importing, setImporting] = useState(false);

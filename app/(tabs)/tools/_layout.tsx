@@ -1,10 +1,9 @@
-import { Colors } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Stack } from 'expo-router';
 
+import { useAppTheme } from '@/providers/ThemePreferenceProvider';
+
 export default function ToolsLayout() {
-  const colorScheme = useColorScheme() ?? 'light';
-  const theme = Colors[colorScheme];
+  const { theme } = useAppTheme();
 
   return (
     <Stack

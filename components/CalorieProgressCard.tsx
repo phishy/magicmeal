@@ -3,8 +3,8 @@ import { StyleSheet, TouchableOpacity, View } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
 
 import { ThemedText } from '@/components/themed-text';
-import { Colors } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import type { Theme } from '@/constants/theme';
+import { useAppTheme } from '@/providers/ThemePreferenceProvider';
 import type { CalorieProgressCardProps } from '@/types';
 import { IconSymbol } from './ui/icon-symbol';
 
@@ -17,8 +17,7 @@ const CalorieProgressCard = memo(function CalorieProgressCard({
   exercise = 0,
   onPress,
 }: CalorieProgressCardProps) {
-  const colorScheme = useColorScheme() ?? 'light';
-  const theme = Colors[colorScheme];
+  const { theme } = useAppTheme();
 
   const normalizedGoal = goal > 0 ? goal : 1;
   const netCalories = Math.max(consumed - exercise, 0);
@@ -131,7 +130,7 @@ const CalorieProgressCard = memo(function CalorieProgressCard({
 
 export default CalorieProgressCard;
 
-const styles = (theme: typeof Colors.light) =>
+const styles = (theme: Theme) =>
   StyleSheet.create({
     card: {
       width: '100%',

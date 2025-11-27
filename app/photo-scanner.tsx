@@ -5,8 +5,8 @@ import { ThemedView } from '@/components/themed-view';
 import { useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import { IconSymbol } from '@/components/ui/icon-symbol';
-import { Colors } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import type { Theme } from '@/constants/theme';
+import { useAppTheme } from '@/providers/ThemePreferenceProvider';
 import type { MealType } from '@/types';
 import { createMeal } from '@/services/meals';
 
@@ -14,8 +14,7 @@ export default function PhotoScanner() {
   const [image, setImage] = useState<string | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
   const router = useRouter();
-  const colorScheme = useColorScheme() ?? 'light';
-  const theme = Colors[colorScheme];
+  const { theme } = useAppTheme();
 
   const pickImage = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -222,7 +221,7 @@ export default function PhotoScanner() {
   );
 }
 
-const createStyles = (theme: typeof Colors.light) => StyleSheet.create({
+const createStyles = (theme: Theme) => StyleSheet.create({
   container: {
     flex: 1,
   },

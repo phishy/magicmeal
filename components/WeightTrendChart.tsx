@@ -5,8 +5,8 @@ import { LineChart } from 'react-native-gifted-charts';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Colors } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import type { Theme } from '@/constants/theme';
+import { useAppTheme } from '@/providers/ThemePreferenceProvider';
 import type { WeightEntry, WeightTrendChartProps } from '@/types';
 
 const DEFAULT_HEIGHT = 160;
@@ -27,8 +27,7 @@ const WeightTrendChart = memo(function WeightTrendChart({
   topContent,
   style,
 }: WeightTrendChartProps) {
-  const colorScheme = useColorScheme() ?? 'light';
-  const theme = Colors[colorScheme];
+  const { theme } = useAppTheme();
   const [containerWidth, setContainerWidth] = useState(0);
 
   const handleLayout = useCallback(
@@ -215,7 +214,7 @@ const WeightTrendChart = memo(function WeightTrendChart({
 
 export default WeightTrendChart;
 
-const styles = (theme: typeof Colors.light) =>
+const styles = (theme: Theme) =>
   StyleSheet.create({
     graphCard: {
       padding: 20,

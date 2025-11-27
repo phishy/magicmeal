@@ -6,6 +6,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { SessionProvider, useSession } from '@/providers/SessionProvider';
+import { ThemePreferenceProvider } from '@/providers/ThemePreferenceProvider';
 import { ThemedView } from '@/components/themed-view';
 import { ThemedText } from '@/components/themed-text';
 
@@ -17,7 +18,9 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SessionProvider>
-        <RootNavigation />
+        <ThemePreferenceProvider>
+          <RootNavigation />
+        </ThemePreferenceProvider>
       </SessionProvider>
     </GestureHandlerRootView>
   );

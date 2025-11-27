@@ -17,9 +17,9 @@ import { Swipeable } from 'react-native-gesture-handler';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Colors } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import type { Theme } from '@/constants/theme';
 import { IconSymbol } from '@/components/ui/icon-symbol';
+import { useAppTheme } from '@/providers/ThemePreferenceProvider';
 import type { BloodPressureEntry } from '@/types';
 
 const STORAGE_KEY = 'bpEntries';
@@ -27,8 +27,7 @@ const CHART_HEIGHT = 160;
 const CHART_WIDTH = Dimensions.get('window').width - 48;
 
 export default function BloodPressureScreen() {
-  const colorScheme = useColorScheme() ?? 'light';
-  const theme = Colors[colorScheme];
+  const { theme } = useAppTheme();
   const styles = useMemo(() => createStyles(theme), [theme]);
 
   const [entries, setEntries] = useState<BloodPressureEntry[]>([]);
@@ -321,7 +320,7 @@ export default function BloodPressureScreen() {
   );
 }
 
-const createStyles = (theme: typeof Colors.light) =>
+const createStyles = (theme: Theme) =>
   StyleSheet.create({
     safeArea: {
       flex: 1,

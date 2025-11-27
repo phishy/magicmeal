@@ -4,8 +4,8 @@ import { CameraView, Camera } from 'expo-camera';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { useRouter } from 'expo-router';
-import { Colors } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import type { Theme } from '@/constants/theme';
+import { useAppTheme } from '@/providers/ThemePreferenceProvider';
 import type { MealType } from '@/types';
 import { createMeal } from '@/services/meals';
 
@@ -13,8 +13,7 @@ export default function BarcodeScanner() {
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
   const [scanned, setScanned] = useState(false);
   const router = useRouter();
-  const colorScheme = useColorScheme() ?? 'light';
-  const theme = Colors[colorScheme];
+  const { theme } = useAppTheme();
 
   useEffect(() => {
     (async () => {
@@ -167,7 +166,7 @@ export default function BarcodeScanner() {
   );
 }
 
-const createStyles = (theme: typeof Colors.light) => StyleSheet.create({
+const createStyles = (theme: Theme) => StyleSheet.create({
   container: {
     flex: 1,
     justifyContent: 'center',

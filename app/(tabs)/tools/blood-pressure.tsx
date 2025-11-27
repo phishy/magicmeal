@@ -17,10 +17,10 @@ import useSWR from 'swr';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Colors } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
-import type { BloodPressureEntry } from '@/types';
+import type { Theme } from '@/constants/theme';
 import { IconSymbol } from '@/components/ui/icon-symbol';
+import { useAppTheme } from '@/providers/ThemePreferenceProvider';
+import type { BloodPressureEntry } from '@/types';
 import {
   createBloodPressureEntry,
   fetchBloodPressureEntries,
@@ -31,8 +31,7 @@ const CHART_HEIGHT = 160;
 const CHART_WIDTH = Dimensions.get('window').width - 48;
 
 export default function BloodPressureTool() {
-  const colorScheme = useColorScheme() ?? 'light';
-  const theme = Colors[colorScheme];
+  const { theme } = useAppTheme();
   const styles = useMemo(() => createStyles(theme), [theme]);
 
   const [systolic, setSystolic] = useState('');
@@ -251,7 +250,7 @@ export default function BloodPressureTool() {
           </View>
           <TouchableOpacity style={styles.saveButton} onPress={handleSaveEntry} disabled={saving}>
             {saving ? (
-              <ActivityIndicator color="#fff" />
+              <ActivityIndicator color={theme.onPrimary} />
             ) : (
               <ThemedText style={styles.saveButtonText}>Save Reading</ThemedText>
             )}
@@ -280,7 +279,7 @@ export default function BloodPressureTool() {
                       style={[styles.swipeButton, styles.deleteButton]}
                       onPress={() => handleRemoveEntry(entry.id)}
                     >
-                      <IconSymbol size={20} name="trash.fill" color="#fff" />
+                      <IconSymbol size={20} name="trash.fill" color={theme.onDanger} />
                       <ThemedText style={styles.swipeButtonText}>Delete</ThemedText>
                     </TouchableOpacity>
                   </View>
@@ -315,7 +314,7 @@ export default function BloodPressureTool() {
   );
 }
 
-const createStyles = (theme: typeof Colors.light) =>
+const createStyles = (theme: Theme) =>
   StyleSheet.create({
     safeArea: { flex: 1 },
     container: { flex: 1 },
@@ -354,7 +353,7 @@ const createStyles = (theme: typeof Colors.light) =>
       backgroundColor: theme.cardElevated,
     },
     saveButton: { backgroundColor: theme.primary, borderRadius: 12, paddingVertical: 14, alignItems: 'center' },
-    saveButtonText: { color: '#fff', fontSize: 16, fontWeight: '600' },
+    saveButtonText: { color: theme.onPrimary, fontSize: 16, fontWeight: '600' },
     entriesCard: { padding: 20, borderRadius: 16, backgroundColor: theme.card, gap: 12 },
     emptyList: { paddingVertical: 24, alignItems: 'center' },
     emptyListText: { color: theme.textSecondary },
@@ -373,6 +372,6 @@ const createStyles = (theme: typeof Colors.light) =>
     swipeActions: { flexDirection: 'row', alignItems: 'center', height: '100%' },
     swipeButton: { justifyContent: 'center', alignItems: 'center', width: 90, height: '100%', borderRadius: 12, gap: 4 },
     deleteButton: { backgroundColor: theme.danger },
-    swipeButtonText: { color: '#fff', fontSize: 12, fontWeight: '600' },
+    swipeButtonText: { color: theme.onDanger, fontSize: 12, fontWeight: '600' },
   });
 

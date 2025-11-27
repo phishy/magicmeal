@@ -1,4 +1,4 @@
-# 🍽️ MagicMeal - A Better MyFitnessPal Alternative
+# 🍽️ MagicMeal - A Self-Hosted Alternative
 
 A modern, AI-powered food tracking app built with React Native and Expo. Track your meals effortlessly with barcode scanning and AI photo recognition.
 
@@ -33,7 +33,17 @@ A modern, AI-powered food tracking app built with React Native and Expo. Track y
    npx expo start
    ```
 
-3. Press `i` for iOS simulator or `a` for Android emulator
+3. Set up Supabase (local backend)
+
+   ```bash
+   brew install supabase/tap/supabase   # or: npm install -g supabase
+   supabase login                       # first time only
+   supabase start
+   ```
+
+   The CLI uses `supabase/config.toml` and `supabase/migrations` to boot a local stack, apply migrations, and generate a `.env` file with the API URL and anon key. Copy those values into your Expo env file (see below) as `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_ANON_KEY`. Keep the Supabase services running in a separate terminal while developing. If you need to reapply schema changes, run `supabase migration up`.
+
+4. Press `i` for iOS simulator or `a` for Android emulator
 
 ## 📸 AI Photo Recognition Setup
 
@@ -113,6 +123,10 @@ npx expo install expo-sqlite
 Add these to your `.env` file:
 
 ```env
+# Supabase backend (generated after `supabase start`)
+EXPO_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321
+EXPO_PUBLIC_SUPABASE_ANON_KEY=your_local_anon_key
+
 # For AI Photo Recognition
 EXPO_PUBLIC_OPENAI_API_KEY=your_key_here
 

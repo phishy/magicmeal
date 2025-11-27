@@ -6,8 +6,8 @@ import { Redirect } from 'expo-router';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { useColorScheme } from '@/hooks/use-color-scheme';
-import { Colors } from '@/constants/theme';
+import type { Theme } from '@/constants/theme';
+import { useAppTheme } from '@/providers/ThemePreferenceProvider';
 import { signInWithEmail, signUpWithEmail } from '@/services/auth';
 import { useSession } from '@/providers/SessionProvider';
 
@@ -17,8 +17,7 @@ export default function LoginScreen() {
   const [mode, setMode] = useState<'signin' | 'signup'>('signin');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const colorScheme = useColorScheme() ?? 'light';
-  const theme = Colors[colorScheme];
+  const { theme } = useAppTheme();
   const styles = createStyles(theme);
   const { session } = useSession();
 
@@ -115,7 +114,7 @@ export default function LoginScreen() {
   );
 }
 
-const createStyles = (theme: typeof Colors.light) =>
+const createStyles = (theme: Theme) =>
   StyleSheet.create({
     safeArea: { flex: 1 },
     container: {

@@ -3,8 +3,8 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import WeightTrendChart from '@/components/WeightTrendChart';
-import { Colors } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import type { Theme } from '@/constants/theme';
+import { useAppTheme } from '@/providers/ThemePreferenceProvider';
 import { fetchMealsForDate } from '@/services/meals';
 import { fetchWeightEntries } from '@/services/weight';
 import type { MealEntry, WeightEntry } from '@/types';
@@ -17,8 +17,7 @@ import useSWR from 'swr';
 const CHART_HEIGHT = 160;
 
 export default function DashboardScreen() {
-  const colorScheme = useColorScheme() ?? 'light';
-  const theme = Colors[colorScheme];
+  const { theme } = useAppTheme();
   const styles = useMemo(() => createStyles(theme), [theme]);
   const router = useRouter();
 
@@ -93,7 +92,7 @@ export default function DashboardScreen() {
         <View style={styles.grid}>
           <ThemedView style={styles.card}>
             <View style={[styles.iconWrap, { backgroundColor: theme.secondary }]}>
-              <IconSymbol name="scalemass.fill" size={24} color="#fff" />
+              <IconSymbol name="scalemass.fill" size={24} color={theme.onSecondary} />
             </View>
             <ThemedText style={styles.cardLabel}>Last Weight</ThemedText>
             <ThemedText style={styles.cardValue}>{latestWeightInfo.value}</ThemedText>
@@ -101,8 +100,8 @@ export default function DashboardScreen() {
           </ThemedView>
 
           <ThemedView style={styles.card}>
-            <View style={[styles.iconWrap, { backgroundColor: '#FFB347' }]}>
-              <IconSymbol name="bolt.heart" size={24} color="#fff" />
+            <View style={[styles.iconWrap, { backgroundColor: theme.metricProtein }]}>
+              <IconSymbol name="bolt.heart" size={24} color={theme.onAccent} />
             </View>
             <ThemedText style={styles.cardLabel}>Protein</ThemedText>
             <ThemedText style={styles.cardValue}>{totals.protein}g</ThemedText>
@@ -110,8 +109,8 @@ export default function DashboardScreen() {
           </ThemedView>
 
           <ThemedView style={styles.card}>
-            <View style={[styles.iconWrap, { backgroundColor: '#34C759' }]}>
-              <IconSymbol name="leaf.fill" size={24} color="#fff" />
+            <View style={[styles.iconWrap, { backgroundColor: theme.metricCarbs }]}>
+              <IconSymbol name="leaf.fill" size={24} color={theme.onAccent} />
             </View>
             <ThemedText style={styles.cardLabel}>Carbs</ThemedText>
             <ThemedText style={styles.cardValue}>{totals.carbs}g</ThemedText>
@@ -119,8 +118,8 @@ export default function DashboardScreen() {
           </ThemedView>
 
           <ThemedView style={styles.card}>
-            <View style={[styles.iconWrap, { backgroundColor: '#FF6B6B' }]}>
-              <IconSymbol name="drop.fill" size={24} color="#fff" />
+            <View style={[styles.iconWrap, { backgroundColor: theme.metricFat }]}>
+              <IconSymbol name="drop.fill" size={24} color={theme.onAccent} />
             </View>
             <ThemedText style={styles.cardLabel}>Fat</ThemedText>
             <ThemedText style={styles.cardValue}>{totals.fat}g</ThemedText>
@@ -140,7 +139,7 @@ export default function DashboardScreen() {
   );
 }
 
-const createStyles = (theme: typeof Colors.light) =>
+const createStyles = (theme: Theme) =>
   StyleSheet.create({
     safeArea: { flex: 1 },
     container: {

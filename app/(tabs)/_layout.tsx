@@ -14,12 +14,11 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { IconSymbol } from '@/components/ui/icon-symbol';
-import { Colors } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import type { Theme } from '@/constants/theme';
 import { useSession } from '@/providers/SessionProvider';
+import { useAppTheme } from '@/providers/ThemePreferenceProvider';
 
 export default function TabLayout() {
-  const colorScheme = useColorScheme();
   const { session, loading } = useSession();
   const [sheetVisible, setSheetVisible] = useState(false);
 
@@ -39,7 +38,7 @@ export default function TabLayout() {
     <>
       <Tabs
         tabBar={(props) => (
-          <CustomTabBar {...props} onOpenSheet={() => setSheetVisible(true)} colorScheme={colorScheme} />
+          <CustomTabBar {...props} onOpenSheet={() => setSheetVisible(true)} />
         )}
         screenOptions={{
           headerShown: false,
@@ -82,12 +81,11 @@ export default function TabLayout() {
 
 type CustomTabBarProps = BottomTabBarProps & {
   onOpenSheet: () => void;
-  colorScheme: ReturnType<typeof useColorScheme>;
 };
 
-const CustomTabBar = ({ state, descriptors, navigation, onOpenSheet, colorScheme }: CustomTabBarProps) => {
+const CustomTabBar = ({ state, descriptors, navigation, onOpenSheet }: CustomTabBarProps) => {
   const insets = useSafeAreaInsets();
-  const theme = Colors[colorScheme ?? 'light'];
+  const { theme } = useAppTheme();
   const styles = useMemo(
     () =>
       StyleSheet.create({
@@ -101,7 +99,7 @@ const CustomTabBar = ({ state, descriptors, navigation, onOpenSheet, colorScheme
           backgroundColor: theme.card,
           borderTopLeftRadius: 28,
           borderTopRightRadius: 28,
-          shadowColor: '#000',
+          shadowColor: theme.shadow,
           shadowOpacity: 0.2,
           shadowOffset: { width: 0, height: -4 },
           shadowRadius: 16,
@@ -132,7 +130,7 @@ const CustomTabBar = ({ state, descriptors, navigation, onOpenSheet, colorScheme
         },
         plusText: {
           fontSize: 32,
-          color: '#fff',
+          color: theme.onPrimary,
           marginTop: -4,
         },
         row: {
@@ -157,7 +155,7 @@ const CustomTabBar = ({ state, descriptors, navigation, onOpenSheet, colorScheme
             : options.title !== undefined
             ? options.title
             : route.name;
-        const color = isFocused ? '#fff' : 'rgba(255,255,255,0.6)';
+        const color = isFocused ? theme.tabIconActive : theme.tabIconInactive;
         const icon =
           options.tabBarIcon?.({
             focused: isFocused,
@@ -220,30 +218,36 @@ const quickActions = [
     key: 'log-food',
     label: 'Log Food',
     icon: 'magnifyingglass',
-    color: '#4DA1FF',
+    colorKey: 'quickActionLogFood',
     route: '/food-search',
   },
   {
     key: 'barcode',
     label: 'Barcode Scan',
     icon: 'barcode.viewfinder',
-    color: '#FF6B6B',
+    colorKey: 'quickActionBarcode',
     route: '/barcode-scanner',
   },
   {
     key: 'voice',
     label: 'Voice Log',
     icon: 'mic.fill',
-    color: '#C792FF',
+    colorKey: 'quickActionVoice',
   },
   {
     key: 'meal',
     label: 'Meal Scan',
     icon: 'camera.viewfinder',
-    color: '#00C6AE',
+    colorKey: 'quickActionMeal',
     route: '/photo-scanner',
   },
-] as const;
+] satisfies ReadonlyArray<{
+  key: string;
+  label: string;
+  icon: string;
+  colorKey: keyof Theme;
+  route?: string;
+}>;
 
 const trackerActions = [
   { key: 'water', label: 'Water', icon: 'drop.fill' },
@@ -253,8 +257,7 @@ const trackerActions = [
 
 const PlusActionSheet = ({ visible, onClose }: PlusSheetProps) => {
   const insets = useSafeAreaInsets();
-  const colorScheme = useColorScheme();
-  const theme = Colors[colorScheme ?? 'light'];
+  const { theme } = useAppTheme();
   const router = useRouter();
 
   const handleAction = (action: { route?: string; key: string }) => {
@@ -269,26 +272,29 @@ const PlusActionSheet = ({ visible, onClose }: PlusSheetProps) => {
   return (
     <Modal transparent animationType="slide" visible={visible} onRequestClose={onClose}>
       <TouchableWithoutFeedback onPress={onClose}>
-        <View style={sheetStyles.backdrop} />
+        <View style={[sheetStyles.backdrop, { backgroundColor: theme.modalBackdrop }]} />
       </TouchableWithoutFeedback>
       <View style={[sheetStyles.sheet, { paddingBottom: insets.bottom + 24, backgroundColor: theme.card }]}>
-        <View style={sheetStyles.handle} />
+        <View style={[sheetStyles.handle, { backgroundColor: theme.sheetHandle }]} />
         <ThemedText type="title" style={sheetStyles.sheetTitle}>
           Quick Actions
         </ThemedText>
         <View style={sheetStyles.quickGrid}>
-          {quickActions.map((action) => (
-            <TouchableOpacity
-              key={action.key}
-              style={[sheetStyles.quickCard, { backgroundColor: `${action.color}20` }]}
-              onPress={() => handleAction(action)}
-            >
-              <View style={[sheetStyles.quickIcon, { backgroundColor: action.color }]}>
-                <IconSymbol name={action.icon} size={22} color="#fff" />
-              </View>
-              <ThemedText style={sheetStyles.quickLabel}>{action.label}</ThemedText>
-            </TouchableOpacity>
-          ))}
+          {quickActions.map((action) => {
+            const accentColor = theme[action.colorKey];
+            return (
+              <TouchableOpacity
+                key={action.key}
+                style={[sheetStyles.quickCard, { backgroundColor: `${accentColor}20` }]}
+                onPress={() => handleAction(action)}
+              >
+                <View style={[sheetStyles.quickIcon, { backgroundColor: accentColor }]}>
+                  <IconSymbol name={action.icon} size={22} color={theme.onAccent} />
+                </View>
+                <ThemedText style={sheetStyles.quickLabel}>{action.label}</ThemedText>
+              </TouchableOpacity>
+            );
+          })}
         </View>
 
         <View style={sheetStyles.trackerList}>
@@ -301,7 +307,7 @@ const PlusActionSheet = ({ visible, onClose }: PlusSheetProps) => {
               ]}
               onPress={() => handleAction(action)}
             >
-              <View style={sheetStyles.trackerIcon}>
+              <View style={[sheetStyles.trackerIcon, { backgroundColor: theme.trackerIconBackground }]}>
                 <IconSymbol name={action.icon} size={18} color={theme.primary} />
               </View>
               <ThemedText style={sheetStyles.trackerLabel}>{action.label}</ThemedText>
@@ -316,7 +322,6 @@ const PlusActionSheet = ({ visible, onClose }: PlusSheetProps) => {
 const sheetStyles = StyleSheet.create({
   backdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
   },
   sheet: {
     borderTopLeftRadius: 32,
@@ -330,7 +335,6 @@ const sheetStyles = StyleSheet.create({
     width: 60,
     height: 5,
     borderRadius: 999,
-    backgroundColor: 'rgba(255,255,255,0.2)',
     marginBottom: 6,
   },
   sheetTitle: {
@@ -375,7 +379,6 @@ const sheetStyles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: 'rgba(255,255,255,0.1)',
     alignItems: 'center',
     justifyContent: 'center',
   },

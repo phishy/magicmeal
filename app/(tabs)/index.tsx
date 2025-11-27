@@ -7,8 +7,8 @@ import useSWR from 'swr';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { IconSymbol } from '@/components/ui/icon-symbol';
-import { Colors } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import type { Theme } from '@/constants/theme';
+import { useAppTheme } from '@/providers/ThemePreferenceProvider';
 import { fetchMealsForDate, removeMeal as removeMealRecord } from '@/services/meals';
 import type { MealEntry, MealType } from '@/types';
 
@@ -16,8 +16,7 @@ const mealOrder: MealType[] = ['breakfast', 'lunch', 'dinner', 'snack'];
 
 export default function HomeScreen() {
   const router = useRouter();
-  const colorScheme = useColorScheme() ?? 'light';
-  const theme = Colors[colorScheme];
+  const { theme } = useAppTheme();
   const dynamicStyles = createStyles(theme);
 
   const today = useMemo(() => {
@@ -172,7 +171,7 @@ export default function HomeScreen() {
                     style={dynamicStyles.mealGroupAdd}
                     onPress={() => router.push('/food-search')}
                   >
-                    <IconSymbol name="plus" size={16} color="#fff" />
+                    <IconSymbol name="plus" size={16} color={theme.onPrimary} />
                   </TouchableOpacity>
                 </View>
                 {meals.length === 0 ? (
@@ -187,7 +186,7 @@ export default function HomeScreen() {
                             style={[dynamicStyles.swipeButton, dynamicStyles.deleteButton]}
                             onPress={() => handleRemoveMeal(meal.id)}
                           >
-                            <IconSymbol size={24} name="trash.fill" color="#fff" />
+                            <IconSymbol size={24} name="trash.fill" color={theme.onDanger} />
                             <ThemedText style={dynamicStyles.swipeButtonText}>Remove</ThemedText>
                           </TouchableOpacity>
                         </View>
@@ -224,7 +223,7 @@ export default function HomeScreen() {
   );
 }
 
-const createStyles = (theme: typeof Colors.light) => StyleSheet.create({
+const createStyles = (theme: Theme) => StyleSheet.create({
   container: {
     flex: 1,
   },
@@ -408,7 +407,7 @@ const createStyles = (theme: typeof Colors.light) => StyleSheet.create({
     borderBottomLeftRadius: 12,
   },
   swipeButtonText: {
-    color: '#fff',
+    color: theme.onDanger,
     fontSize: 12,
     fontWeight: '600',
     textAlign: 'center',

@@ -1,21 +1,22 @@
 import { useRouter } from 'expo-router';
-import { Alert, Platform, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { useState } from 'react';
+import { Alert, Modal, Platform, StyleSheet, TouchableOpacity, TouchableWithoutFeedback, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { IconSymbol } from '@/components/ui/icon-symbol';
-import { Colors } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import { ThemeCatalog, type Theme, type ThemeName } from '@/constants/theme';
 import { useSession } from '@/providers/SessionProvider';
+import { useAppTheme } from '@/providers/ThemePreferenceProvider';
 import { signOut } from '@/services/auth';
 
 export default function YouScreen() {
-  const colorScheme = useColorScheme() ?? 'light';
-  const theme = Colors[colorScheme];
+  const { theme, themeName, setThemeName } = useAppTheme();
   const styles = createStyles(theme);
   const { session } = useSession();
   const router = useRouter();
+  const [themePickerVisible, setThemePickerVisible] = useState(false);
 
   const executeSignOut = async () => {
     try {
@@ -66,16 +67,69 @@ export default function YouScreen() {
           <ThemedText style={styles.menuButtonText}>Go to Tools</ThemedText>
         </TouchableOpacity>
 
+        <TouchableOpacity style={styles.menuButton} onPress={() => setThemePickerVisible(true)}>
+          <IconSymbol name="paintbrush.fill" size={20} color={theme.secondary} />
+          <View style={styles.menuButtonContent}>
+            <ThemedText style={styles.menuButtonText}>Theme</ThemedText>
+            <ThemedText style={styles.menuButtonCaption}>
+              Current: {ThemeCatalog[themeName].label}
+            </ThemedText>
+          </View>
+          <IconSymbol name="chevron.right" size={16} color={theme.textSecondary} />
+        </TouchableOpacity>
+
         <TouchableOpacity style={[styles.menuButton, styles.signOutButton]} onPress={handleSignOut}>
           <IconSymbol name="rectangle.portrait.and.arrow.right" size={20} color={theme.warning} />
           <ThemedText style={[styles.menuButtonText, styles.signOutButtonText]}>Sign Out</ThemedText>
         </TouchableOpacity>
       </ThemedView>
+
+      <Modal transparent visible={themePickerVisible} animationType="fade" onRequestClose={() => setThemePickerVisible(false)}>
+        <TouchableWithoutFeedback onPress={() => setThemePickerVisible(false)}>
+          <View style={[styles.modalBackdrop, { backgroundColor: theme.modalBackdrop }]} />
+        </TouchableWithoutFeedback>
+        <View style={styles.themeModalContainer}>
+          <ThemedView style={styles.themeModalCard}>
+            <ThemedText type="title">Choose Theme</ThemedText>
+            <ThemedText style={styles.themeModalSubtitle}>Switch up the accent colors across the app.</ThemedText>
+            {themeOptions.map(([name, meta]) => {
+              const isActive = name === themeName;
+              return (
+                <TouchableOpacity
+                  key={name}
+                  style={[styles.themeOption, isActive && styles.themeOptionActive]}
+                  onPress={() => {
+                    setThemeName(name as ThemeName);
+                    setThemePickerVisible(false);
+                  }}
+                  activeOpacity={0.9}
+                >
+                  <View style={styles.themeOptionHeader}>
+                    <ThemedText style={styles.themeOptionTitle}>{meta.label}</ThemedText>
+                    {isActive ? <IconSymbol name="checkmark.circle.fill" size={20} color={theme.primary} /> : null}
+                  </View>
+                  <ThemedText style={styles.themeOptionDescription}>{meta.description}</ThemedText>
+                  <View style={styles.themeSwatches}>
+                    {meta.preview.map((shade) => (
+                      <View key={shade} style={[styles.themeSwatch, { backgroundColor: shade }]} />
+                    ))}
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
+            <TouchableOpacity style={styles.closeModalButton} onPress={() => setThemePickerVisible(false)}>
+              <ThemedText style={styles.closeModalText}>Close</ThemedText>
+            </TouchableOpacity>
+          </ThemedView>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
 
-const createStyles = (theme: typeof Colors.light) =>
+const themeOptions = Object.entries(ThemeCatalog) as [ThemeName, (typeof ThemeCatalog)[ThemeName]][];
+
+const createStyles = (theme: Theme) =>
   StyleSheet.create({
     safeArea: {
       flex: 1,
@@ -125,11 +179,78 @@ const createStyles = (theme: typeof Colors.light) =>
       fontSize: 16,
       color: theme.text,
     },
+    menuButtonContent: {
+      flex: 1,
+      gap: 2,
+    },
+    menuButtonCaption: {
+      fontSize: 13,
+      color: theme.textSecondary,
+    },
     signOutButton: {
       borderColor: theme.warning,
     },
     signOutButtonText: {
       color: theme.warning,
+      fontWeight: '600',
+    },
+    modalBackdrop: {
+      ...StyleSheet.absoluteFillObject,
+    },
+    themeModalContainer: {
+      position: 'absolute',
+      left: 0,
+      right: 0,
+      bottom: 0,
+      padding: 20,
+    },
+    themeModalCard: {
+      borderRadius: 24,
+      padding: 20,
+      gap: 16,
+    },
+    themeModalSubtitle: {
+      color: theme.textSecondary,
+      marginTop: -8,
+    },
+    themeOption: {
+      borderWidth: 1,
+      borderColor: theme.border,
+      borderRadius: 16,
+      padding: 14,
+      gap: 10,
+    },
+    themeOptionActive: {
+      borderColor: theme.primary,
+    },
+    themeOptionHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+    },
+    themeOptionTitle: {
+      fontSize: 16,
+      fontWeight: '600',
+    },
+    themeOptionDescription: {
+      color: theme.textSecondary,
+      fontSize: 14,
+    },
+    themeSwatches: {
+      flexDirection: 'row',
+      gap: 8,
+    },
+    themeSwatch: {
+      width: 32,
+      height: 10,
+      borderRadius: 999,
+    },
+    closeModalButton: {
+      marginTop: 4,
+      alignSelf: 'flex-end',
+    },
+    closeModalText: {
+      color: theme.primary,
       fontWeight: '600',
     },
   });

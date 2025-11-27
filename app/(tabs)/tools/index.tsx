@@ -5,15 +5,15 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { IconSymbol } from '@/components/ui/icon-symbol';
-import { Colors } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import type { Theme } from '@/constants/theme';
+import { useAppTheme } from '@/providers/ThemePreferenceProvider';
 const toolCards = [
   {
     id: 'blood-pressure',
     title: 'Blood Pressure',
     description: 'Log systolic, diastolic, and pulse readings with trends.',
     icon: 'heart.fill',
-    accent: '#FF375F',
+    accentKey: 'toolCardBloodPressure',
     route: '/tools/blood-pressure',
   },
   {
@@ -21,15 +21,21 @@ const toolCards = [
     title: 'Weight',
     description: 'Track weight changes over time and visualize progress.',
     icon: 'scalemass',
-    accent: '#5AC8FA',
+    accentKey: 'toolCardWeight',
     route: '/tools/weight',
   },
-];
+] satisfies readonly {
+  id: string;
+  title: string;
+  description: string;
+  icon: string;
+  route: string;
+  accentKey: keyof Theme;
+}[];
 
 export default function ToolsHome() {
   const router = useRouter();
-  const colorScheme = useColorScheme() ?? 'light';
-  const theme = Colors[colorScheme];
+  const { theme } = useAppTheme();
   const styles = createStyles(theme);
 
   return (
@@ -53,8 +59,8 @@ export default function ToolsHome() {
               onPress={() => router.push(tool.route as never)}
             >
               <ThemedView style={styles.card}>
-                <View style={[styles.iconWrapper, { backgroundColor: tool.accent }]}>
-                  <IconSymbol name={tool.icon as any} size={28} color="#fff" />
+                <View style={[styles.iconWrapper, { backgroundColor: theme[tool.accentKey] }]}>
+                  <IconSymbol name={tool.icon as any} size={28} color={theme.onAccent} />
                 </View>
                 <View style={styles.cardBody}>
                   <ThemedText style={styles.cardTitle}>{tool.title}</ThemedText>
@@ -71,7 +77,7 @@ export default function ToolsHome() {
   );
 }
 
-const createStyles = (theme: typeof Colors.light) =>
+const createStyles = (theme: Theme) =>
   StyleSheet.create({
     safeArea: {
       flex: 1,

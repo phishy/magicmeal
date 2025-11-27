@@ -16,6 +16,7 @@ export default function LoginScreen() {
   const [password, setPassword] = useState('');
   const [mode, setMode] = useState<'signin' | 'signup'>('signin');
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const colorScheme = useColorScheme() ?? 'light';
   const theme = Colors[colorScheme];
   const styles = createStyles(theme);
@@ -26,8 +27,10 @@ export default function LoginScreen() {
   }
 
   const handleSubmit = async () => {
+    setError(null);
+
     if (!email || !password) {
-      Alert.alert('Missing info', 'Please enter your email and password.');
+      setError('Please enter your email and password.');
       return;
     }
 
@@ -40,7 +43,7 @@ export default function LoginScreen() {
         Alert.alert('Check your email', 'Confirm your account before signing in.');
       }
     } catch (error: any) {
-      Alert.alert('Authentication error', error.message ?? 'Please try again.');
+      setError(error.message ?? 'An error occurred. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -57,6 +60,12 @@ export default function LoginScreen() {
         </View>
 
         <View style={styles.form}>
+          {error && (
+            <View style={styles.errorContainer}>
+              <ThemedText style={styles.errorText}>{error}</ThemedText>
+            </View>
+          )}
+
           <View style={styles.inputGroup}>
             <ThemedText style={styles.label}>Email</ThemedText>
             <TextInput
@@ -90,7 +99,10 @@ export default function LoginScreen() {
 
           <TouchableOpacity
             style={styles.secondaryButton}
-            onPress={() => setMode(mode === 'signin' ? 'signup' : 'signin')}
+            onPress={() => {
+              setMode(mode === 'signin' ? 'signup' : 'signin');
+              setError(null);
+            }}
             disabled={loading}
           >
             <ThemedText style={styles.secondaryButtonText}>
@@ -120,6 +132,17 @@ const createStyles = (theme: typeof Colors.light) =>
     },
     form: {
       gap: 16,
+    },
+    errorContainer: {
+      backgroundColor: '#fee',
+      borderRadius: 8,
+      padding: 12,
+      borderWidth: 1,
+      borderColor: '#fcc',
+    },
+    errorText: {
+      color: '#c00',
+      fontSize: 14,
     },
     inputGroup: {
       gap: 6,

@@ -8,17 +8,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import {
-  ActivityIndicator,
-  Alert,
-  Dimensions,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import { Alert, Dimensions, Platform, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
 import { LineChart } from 'react-native-gifted-charts';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -31,12 +21,7 @@ import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import type { WeightInput } from '@/services/weight';
-import {
-  createWeightEntries,
-  createWeightEntry,
-  fetchWeightEntries,
-  removeWeightEntry,
-} from '@/services/weight';
+import { createWeightEntries, fetchWeightEntries, removeWeightEntry } from '@/services/weight';
 import type { WeightEntry } from '@/types';
 
 const CHART_HEIGHT = 160;
@@ -56,8 +41,6 @@ export default function WeightTool() {
   const theme = Colors[colorScheme];
   const styles = useMemo(() => createStyles(theme), [theme]);
 
-  const [weight, setWeight] = useState('');
-  const [saving, setSaving] = useState(false);
   const [importing, setImporting] = useState(false);
   const [pickerAvailable, setPickerAvailable] = useState(true);
   const [chartRange, setChartRange] = useState<'1w' | '1m' | '3m' | '1y' | 'all' | 'custom'>('1m');
@@ -233,25 +216,6 @@ export default function WeightTool() {
   const chartWidth = Math.max(160, graphWidth - Y_AXIS_WIDTH - 12);
 
   const weeklyGroups = useMemo(() => groupEntriesByWeek(sortedEntries), [sortedEntries]);
-
-  const handleSaveWeight = useCallback(async () => {
-    const weightNumber = Number(weight);
-    if (!weightNumber) {
-      Alert.alert('Missing data', 'Enter a weight value.');
-      return;
-    }
-
-    setSaving(true);
-    try {
-      await createWeightEntry({ weight: weightNumber });
-      setWeight('');
-      mutate();
-    } catch {
-      Alert.alert('Error', 'Failed to save weight. Try again.');
-    } finally {
-      setSaving(false);
-    }
-  }, [weight, mutate]);
 
   const handleRemoveEntry = useCallback(
     async (id: string) => {
@@ -490,53 +454,23 @@ export default function WeightTool() {
           )}
         </ThemedView>
 
-        <ThemedView style={styles.formCard}>
-          <ThemedText type="subtitle" style={styles.sectionTitle}>
-            Log Weight
+        <TouchableOpacity
+          style={styles.importButton}
+          onPress={handleImportWeights}
+          disabled={importing || !canImport}
+        >
+          <IconSymbol
+            name="tray.and.arrow.down"
+            size={18}
+            color={!canImport ? theme.textTertiary : importing ? theme.textTertiary : theme.primary}
+          />
+          <ThemedText style={styles.importButtonText}>
+            {importing ? 'Importing…' : 'Import from file'}
           </ThemedText>
-          <View style={styles.inputsRow}>
-            <View style={styles.inputGroup}>
-              <ThemedText style={styles.inputLabel}>Weight (lb)</ThemedText>
-              <TextInput
-                value={weight}
-                onChangeText={setWeight}
-                placeholder="180"
-                placeholderTextColor={theme.textTertiary}
-                keyboardType="numeric"
-                style={styles.input}
-              />
-            </View>
-          </View>
-          <TouchableOpacity
-            style={styles.saveButton}
-            onPress={handleSaveWeight}
-            disabled={saving}
-          >
-            {saving ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <ThemedText style={styles.saveButtonText}>Save Weight</ThemedText>
-            )}
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.importButton}
-            onPress={handleImportWeights}
-            disabled={importing || !canImport}
-          >
-            <IconSymbol
-              name="tray.and.arrow.down"
-              size={18}
-              color={!canImport ? theme.textTertiary : importing ? theme.textTertiary : theme.primary}
-            />
-            <ThemedText style={styles.importButtonText}>
-              {importing ? 'Importing…' : 'Import from file'}
-            </ThemedText>
-          </TouchableOpacity>
-          {!!importHelperText && (
-            <ThemedText style={styles.importHelperText}>{importHelperText}</ThemedText>
-          )}
-        </ThemedView>
+        </TouchableOpacity>
+        {!!importHelperText && (
+          <ThemedText style={styles.importHelperText}>{importHelperText}</ThemedText>
+        )}
 
         <ThemedView style={styles.entriesCard}>
           <ThemedText type="subtitle" style={styles.sectionTitle}>

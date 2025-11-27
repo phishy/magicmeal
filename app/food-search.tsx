@@ -1,12 +1,12 @@
-import { useState } from 'react';
-import { StyleSheet, View, TouchableOpacity, Alert, TextInput, FlatList, ActivityIndicator } from 'react-native';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { useRouter } from 'expo-router';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import type { FoodItem, MealType } from '@/types';
 import { createMeal, mapFoodToMealInput } from '@/services/meals';
+import type { FoodItem, MealType } from '@/types';
+import { useRouter } from 'expo-router';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, Alert, FlatList, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 
 export default function FoodSearch() {
   const [searchQuery, setSearchQuery] = useState('');
@@ -23,14 +23,14 @@ export default function FoodSearch() {
     }
 
     setSearching(true);
-    
+
     try {
       // Search Open Food Facts database
       const response = await fetch(
         `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(query)}&search_simple=1&json=1&page_size=20`
       );
       const data = await response.json();
-      
+
       if (data.products && data.products.length > 0) {
         const mappedResults: FoodItem[] = data.products
           .filter((p: any) => p.product_name && p.nutriments)
@@ -43,7 +43,7 @@ export default function FoodSearch() {
             fat: Math.round(product.nutriments.fat_100g || 0),
             serving: product.serving_size || '100g',
           }));
-        
+
         setResults(mappedResults);
       } else {
         setResults([]);
@@ -78,7 +78,7 @@ export default function FoodSearch() {
   const dynamicStyles = createStyles(theme);
 
   const renderFoodItem = ({ item }: { item: FoodItem }) => (
-    <TouchableOpacity 
+    <TouchableOpacity
       style={dynamicStyles.foodItem}
       onPress={() => addFoodToLog(item)}
     >
@@ -97,6 +97,21 @@ export default function FoodSearch() {
     </TouchableOpacity>
   );
 
+  useEffect(() => {
+    const trimmed = searchQuery.trim();
+    if (!trimmed) {
+      setResults([]);
+      setSearching(false);
+      return;
+    }
+
+    const timeout = setTimeout(() => {
+      searchFood(trimmed);
+    }, 400);
+
+    return () => clearTimeout(timeout);
+  }, [searchQuery]);
+
   return (
     <ThemedView style={dynamicStyles.container}>
       <View style={dynamicStyles.header}>
@@ -107,17 +122,14 @@ export default function FoodSearch() {
 
       <View style={dynamicStyles.searchContainer}>
         <ThemedText type="title" style={dynamicStyles.title}>Search Food</ThemedText>
-        
+
         <View style={dynamicStyles.searchBox}>
           <TextInput
             style={dynamicStyles.searchInput}
             placeholder="Search for food..."
             placeholderTextColor={theme.textTertiary}
             value={searchQuery}
-            onChangeText={(text) => {
-              setSearchQuery(text);
-              searchFood(text);
-            }}
+            onChangeText={setSearchQuery}
             autoFocus
           />
         </View>

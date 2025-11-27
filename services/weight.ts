@@ -1,6 +1,6 @@
 import { supabase } from '@/lib/supabase';
 import { getProfileIdOrThrow } from '@/services/helpers';
-import type { WeightEntry } from '@/types';
+import type { WeightEntry, WeightEntryRecord } from '@/types';
 
 const TABLE = 'weight_entries';
 
@@ -10,7 +10,7 @@ export interface WeightInput {
   recordedAt?: string;
 }
 
-const mapEntry = (record: any): WeightEntry => ({
+const mapEntry = (record: WeightEntryRecord): WeightEntry => ({
   id: record.id,
   profileId: record.profile_id,
   weight: Number(record.weight),

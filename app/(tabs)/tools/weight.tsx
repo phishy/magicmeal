@@ -40,7 +40,7 @@ import {
 import type { WeightEntry } from '@/types';
 
 const CHART_HEIGHT = 160;
-const CHART_WIDTH = Dimensions.get('window').width - 48;
+const Y_AXIS_WIDTH = 48;
 const OPENAI_API_KEY = process.env.EXPO_PUBLIC_OPENAI_API_KEY;
 const OPENAI_MODEL = 'gpt-4o-mini'; // fastest low-latency OpenAI option available
 const openai = OPENAI_API_KEY ? createOpenAI({ apiKey: OPENAI_API_KEY }) : null;
@@ -163,6 +163,16 @@ export default function WeightTool() {
     }));
   }, [chartEntries, chartStats]);
 
+  const yAxisLabels = useMemo(() => {
+    if (!chartStats) return [];
+    const labelCount = 4;
+    const range = chartStats.max - chartStats.min || 1;
+    return Array.from({ length: labelCount }, (_, idx) => {
+      const value = chartStats.max - (idx / (labelCount - 1)) * range;
+      return value.toFixed(1);
+    });
+  }, [chartStats]);
+
   const xAxisLabelTexts = useMemo(() => {
     if (!chartEntries.length) return [];
     const labelCount = Math.min(6, chartEntries.length);
@@ -218,6 +228,9 @@ export default function WeightTool() {
     },
     [customRange]
   );
+
+  const [graphWidth, setGraphWidth] = useState(Dimensions.get('window').width - 40);
+  const chartWidth = Math.max(160, graphWidth - Y_AXIS_WIDTH - 12);
 
   const weeklyGroups = useMemo(() => groupEntriesByWeek(sortedEntries), [sortedEntries]);
 
@@ -316,7 +329,10 @@ export default function WeightTool() {
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
       <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-        <ThemedView style={styles.graphCard}>
+        <ThemedView
+          style={styles.graphCard}
+          onLayout={(event) => setGraphWidth(event.nativeEvent.layout.width)}
+        >
           <View style={styles.rangeSelector}>
             {(['1w', '1m', '3m', '1y', 'all', 'custom'] as const).map((range) => (
               <TouchableOpacity
@@ -398,64 +414,78 @@ export default function WeightTool() {
               </ThemedText>
             </View>
           ) : (
-            <View>
-              <LineChart
-                data={chartData}
-                width={CHART_WIDTH}
-                height={CHART_HEIGHT}
-                areaChart
-                adjustToWidth
-                initialSpacing={0}
-                endSpacing={0}
-                disableScroll
-                spacing={chartEntries.length > 1 ? CHART_WIDTH / (chartEntries.length - 1) : CHART_WIDTH}
-                thickness={3}
-                color={theme.primary}
-                startFillColor={theme.primary}
-                startOpacity={0.1}
-                endFillColor={theme.card}
-                endOpacity={0.01}
-                yAxisLabelWidth={0}
-                dataPointsColor={theme.primary}
-                hideDataPoints
-                curved
-                xAxisColor={theme.separator}
-                yAxisColor="transparent"
-                xAxisLabelTexts={xAxisLabelTexts}
-                xAxisLabelTextStyle={styles.xAxisLabel}
-                showVerticalLines={false}
-                hideYAxisText
-                showScrollIndicator={false}
-                pointerConfig={{
-                  pointerStripUptoDataPoint: true,
-                  pointerStripColor: theme.border,
-                  pointerStripWidth: 1,
-                  pointerColor: theme.primary,
-                  pointerLabelComponent: (items: { value: number; entry: WeightEntry }[]) => {
-                    const item = items?.[0];
-                    if (!item) return null;
-                    const entry = item.entry as WeightEntry;
-                    return (
-                      <View style={styles.chartTooltip}>
-                        <ThemedText style={styles.chartTooltipValue}>
-                          {entry.weight.toFixed(1)} {entry.unit ?? 'lb'}
-                        </ThemedText>
-                        <ThemedText style={styles.chartTooltipDate}>
-                          {new Date(entry.recordedAt).toLocaleString(undefined, {
-                            month: 'short',
-                            day: 'numeric',
-                            hour: 'numeric',
-                            minute: '2-digit',
-                          })}
-                        </ThemedText>
-                      </View>
-                    );
-                  },
-                  pointerVanishDelay: 0,
-                  activatePointersOnLongPress: false,
-                }}
-                isAnimated
-              />
+            <View style={styles.chartRow}>
+              <View style={styles.yAxisColumn}>
+                {yAxisLabels.map((label, idx) => (
+                  <ThemedText key={`y-${label}-${idx}`} style={styles.yAxisLabel}>
+                    {label}
+                  </ThemedText>
+                ))}
+              </View>
+              <View style={[styles.chartWrapper, { width: chartWidth }]}>
+                <LineChart
+                  data={chartData}
+                  width={chartWidth}
+                  height={CHART_HEIGHT}
+                  areaChart
+                  adjustToWidth
+                  initialSpacing={0}
+                  endSpacing={0}
+                  disableScroll
+                  spacing={
+                    chartEntries.length > 1
+                      ? chartWidth / (chartEntries.length - 1)
+                      : chartWidth / 2
+                  }
+                  thickness={3}
+                  color={theme.primary}
+                  startFillColor={theme.primary}
+                  startOpacity={0.1}
+                  endFillColor={theme.card}
+                  endOpacity={0.01}
+                  yAxisLabelWidth={0}
+                  dataPointsColor={theme.primary}
+                  hideDataPoints
+                  curved
+                  xAxisColor={theme.separator}
+                  yAxisColor="transparent"
+                  xAxisLabelTexts={xAxisLabelTexts}
+                  xAxisLabelTextStyle={styles.xAxisLabel}
+                  showVerticalLines={false}
+                  hideRules
+                  hideYAxisText
+                  showScrollIndicator={false}
+                  pointerConfig={{
+                    pointerStripUptoDataPoint: true,
+                    pointerStripColor: theme.border,
+                    pointerStripWidth: 1,
+                    pointerColor: theme.primary,
+                    pointerLabelComponent: (items: { value: number; entry: WeightEntry }[]) => {
+                      const item = items?.[0];
+                      if (!item) return null;
+                      const entry = item.entry as WeightEntry;
+                      return (
+                        <View style={styles.chartTooltip}>
+                          <ThemedText style={styles.chartTooltipValue}>
+                            {entry.weight.toFixed(1)} {entry.unit ?? 'lb'}
+                          </ThemedText>
+                          <ThemedText style={styles.chartTooltipDate}>
+                            {new Date(entry.recordedAt).toLocaleString(undefined, {
+                              month: 'short',
+                              day: 'numeric',
+                              hour: 'numeric',
+                              minute: '2-digit',
+                            })}
+                          </ThemedText>
+                        </View>
+                      );
+                    },
+                    pointerVanishDelay: 0,
+                    activatePointersOnLongPress: false,
+                  }}
+                  isAnimated
+                />
+              </View>
             </View>
           )}
         </ThemedView>
@@ -619,6 +649,25 @@ const createStyles = (theme: typeof Colors.light) =>
       color: theme.textSecondary,
       marginTop: 2,
     },
+    chartRow: {
+      flexDirection: 'row',
+      width: '100%',
+      alignItems: 'center',
+      gap: 8,
+    },
+    yAxisColumn: {
+      width: Y_AXIS_WIDTH,
+      height: CHART_HEIGHT,
+      justifyContent: 'space-between',
+    },
+    yAxisLabel: {
+      fontSize: 12,
+      color: theme.textSecondary,
+    },
+    chartWrapper: {
+      overflow: 'hidden',
+      borderRadius: 12,
+    },
     xAxisRow: {
       flexDirection: 'row',
       justifyContent: 'space-between',
@@ -629,6 +678,8 @@ const createStyles = (theme: typeof Colors.light) =>
     xAxisLabel: {
       fontSize: 12,
       color: theme.textSecondary,
+      textAlign: 'center',
+      minWidth: 30,
     },
     graphHeader: {
       width: '100%',

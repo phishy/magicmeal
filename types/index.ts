@@ -42,3 +42,12 @@ export interface WeightEntry {
   recordedAt: string;
 }
 
+export interface WeightEntryRecord {
+  id: string;
+  profile_id: string;
+  weight: number;
+  unit: 'lb' | 'kg';
+  recorded_at: string;
+  created_at: string;
+}
+

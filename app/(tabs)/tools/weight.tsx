@@ -20,8 +20,8 @@ import {
   View,
 } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
+import { LineChart } from 'react-native-gifted-charts';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Circle, Polyline, Svg } from 'react-native-svg';
 import useSWR from 'swr';
 import { z } from 'zod';
 
@@ -151,55 +151,19 @@ export default function WeightTool() {
     }
   }, [chartEntries]);
 
-  const chartGeometry = useMemo(() => {
-    if (!chartEntries.length) {
-      return { path: '', coords: [] as { x: number; y: number; entry: WeightEntry }[] };
-    }
-
-    const weights = chartEntries.map((entry) => entry.weight);
-    const minWeight = Math.min(...weights) - 2;
-    const maxWeight = Math.max(...weights) + 2;
-    const range = maxWeight - minWeight || 1;
-    const stepX =
-      chartEntries.length > 1 ? CHART_WIDTH / (chartEntries.length - 1) : CHART_WIDTH / 2;
-
-    const coords = chartEntries.map((entry, index) => {
-      const x = chartEntries.length > 1 ? index * stepX : CHART_WIDTH / 2;
-      const normalized = (entry.weight - minWeight) / range;
-      const y = CHART_HEIGHT - normalized * CHART_HEIGHT;
-      return { x, y, entry };
-    });
-
-    return {
-      path: coords.map((point) => `${point.x},${point.y}`).join(' '),
-      coords,
-    };
-  }, [chartEntries]);
-
-  const xAxisLabels = useMemo(() => {
-    if (!chartEntries.length) return [];
-    const labelCount = Math.min(4, chartEntries.length);
-    if (labelCount === 1) {
-      return [
-        new Date(chartEntries[0].recordedAt).toLocaleDateString(undefined, {
-          month: 'short',
-          day: 'numeric',
-        }),
-      ];
-    }
-    const step = (chartEntries.length - 1) / (labelCount - 1);
-    return Array.from({ length: labelCount }, (_, index) => {
-      const entryIndex = Math.round(index * step);
-      const entry = chartEntries[Math.min(entryIndex, chartEntries.length - 1)];
-      return new Date(entry.recordedAt).toLocaleDateString(undefined, {
+  const chartData = useMemo(() => {
+    return chartEntries.map((entry, index) => ({
+      value: Number(entry.weight.toFixed(1)),
+      label: new Date(entry.recordedAt).toLocaleDateString(undefined, {
         month: 'short',
         day: 'numeric',
-      });
-    });
+      }),
+      customDataPoint: () => null,
+      dataPointText: entry.weight.toFixed(1),
+      index,
+      entry,
+    }));
   }, [chartEntries]);
-
-  const activeCoord =
-    activePointIndex !== null ? chartGeometry.coords[activePointIndex] : undefined;
 
   const openDatePicker = useCallback(
     (field: 'start' | 'end') => {
@@ -418,54 +382,56 @@ export default function WeightTool() {
               </ThemedText>
             </View>
           ) : (
-            <View style={styles.chartArea}>
-              {activeCoord && (
-                <View
-                  pointerEvents="none"
-                  style={[
-                    styles.chartTooltip,
-                    {
-                      left: Math.min(Math.max(activeCoord.x - 60, 0), CHART_WIDTH - 120),
-                    },
-                  ]}
-                >
-                  <ThemedText style={styles.chartTooltipValue}>
-                    {activeCoord.entry.weight.toFixed(1)} {activeCoord.entry.unit ?? 'lb'}
-                  </ThemedText>
-                  <ThemedText style={styles.chartTooltipDate}>
-                    {new Date(activeCoord.entry.recordedAt).toLocaleString(undefined, {
-                      month: 'short',
-                      day: 'numeric',
-                      hour: 'numeric',
-                      minute: '2-digit',
-                    })}
-                  </ThemedText>
-                </View>
-              )}
-              <Svg width={CHART_WIDTH} height={CHART_HEIGHT}>
-                <Polyline points={chartGeometry.path} stroke={theme.primary} strokeWidth={3} fill="none" />
-                {chartGeometry.coords.map((point, index) => (
-                  <Circle
-                    key={point.entry.id}
-                    cx={point.x}
-                    cy={point.y}
-                    r={activePointIndex === index ? 6 : 4}
-                    stroke="#fff"
-                    strokeWidth={1.5}
-                    fill={activePointIndex === index ? theme.primary : theme.primary}
-                    onPressIn={() => setActivePointIndex(index)}
-                  />
-                ))}
-              </Svg>
-            </View>
-          )}
-          {chartEntries.length > 0 && (
-            <View style={styles.xAxisRow}>
-              {xAxisLabels.map((label, index) => (
-                <ThemedText key={`${label}-${index}`} style={styles.xAxisLabel}>
-                  {label}
-                </ThemedText>
-              ))}
+            <View>
+              <LineChart
+                data={chartData}
+                width={CHART_WIDTH}
+                height={CHART_HEIGHT}
+                areaChart
+                initialSpacing={0}
+                spacing={chartEntries.length > 1 ? CHART_WIDTH / (chartEntries.length - 1) : CHART_WIDTH}
+                thickness={3}
+                color={theme.primary}
+                dataPointsColor={theme.primary}
+                dataPointsHeight={activePointIndex !== null ? 14 : 10}
+                dataPointsWidth={activePointIndex !== null ? 14 : 10}
+                hideDataPoints
+                curved
+                xAxisColor="transparent"
+                yAxisColor="transparent"
+                showVerticalLines={false}
+                hideAxesAndRules
+                showScrollIndicator={false}
+                pointerConfig={{
+                  pointerStripUptoDataPoint: true,
+                  pointerStripColor: theme.border,
+                  pointerStripWidth: 1,
+                  pointerColor: theme.primary,
+                  pointerLabelComponent: (items: { entry: WeightEntry }[]) => {
+                    const item = items?.[0];
+                    if (!item) return null;
+                    const entry = item.entry as WeightEntry;
+                    return (
+                      <View style={styles.chartTooltip}>
+                        <ThemedText style={styles.chartTooltipValue}>
+                          {entry.weight.toFixed(1)} {entry.unit ?? 'lb'}
+                        </ThemedText>
+                        <ThemedText style={styles.chartTooltipDate}>
+                          {new Date(entry.recordedAt).toLocaleString(undefined, {
+                            month: 'short',
+                            day: 'numeric',
+                            hour: 'numeric',
+                            minute: '2-digit',
+                          })}
+                        </ThemedText>
+                      </View>
+                    );
+                  },
+                  pointerVanishDelay: 0,
+                  activatePointersOnLongPress: false,
+                }}
+                isAnimated
+              />
             </View>
           )}
         </ThemedView>
@@ -608,12 +574,6 @@ const createStyles = (theme: typeof Colors.light) =>
       padding: 20,
       borderRadius: 16,
       backgroundColor: theme.card,
-    },
-    chartArea: {
-      width: CHART_WIDTH,
-      height: CHART_HEIGHT,
-      justifyContent: 'center',
-      alignItems: 'center',
     },
     chartTooltip: {
       position: 'absolute',

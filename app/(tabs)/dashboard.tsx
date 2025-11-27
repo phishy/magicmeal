@@ -9,11 +9,10 @@ import { fetchWeightEntries } from '@/services/weight';
 import type { MealEntry, WeightEntry } from '@/types';
 import { useRouter } from 'expo-router';
 import { useMemo } from 'react';
-import { Dimensions, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import useSWR from 'swr';
 
-const CHART_WIDTH = Dimensions.get('window').width - 48;
 const CHART_HEIGHT = 160;
 
 export default function DashboardScreen() {
@@ -54,28 +53,6 @@ export default function DashboardScreen() {
 
   const calorieGoal = 2000;
   const remaining = calorieGoal - totals.calories;
-
-  const weightPoints = useMemo(() => {
-    if (!weightEntries.length) return '';
-    if (!weightEntries.length) return '';
-    const sorted = [...weightEntries].sort(
-      (a, b) => new Date(a.recordedAt).getTime() - new Date(b.recordedAt).getTime()
-    );
-    const weights = sorted.map((entry) => entry.weight);
-    const minWeight = Math.min(...weights) - 2;
-    const maxWeight = Math.max(...weights) + 2;
-    const range = maxWeight - minWeight || 1;
-    const stepX = sorted.length > 1 ? CHART_WIDTH / (sorted.length - 1) : CHART_WIDTH / 2;
-
-    return sorted
-      .map((entry, index) => {
-        const x = sorted.length > 1 ? index * stepX : CHART_WIDTH / 2;
-        const normalized = (entry.weight - minWeight) / range;
-        const y = CHART_HEIGHT - normalized * CHART_HEIGHT;
-        return `${x},${y}`;
-      })
-      .join(' ');
-  }, [weightEntries]);
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
@@ -126,7 +103,7 @@ export default function DashboardScreen() {
         <WeightTrendChart
           title="Weight Trend"
           subtitle="Last week"
-          points={weightPoints}
+          entries={weightEntries}
           emptyMessage="No weight data yet."
           height={CHART_HEIGHT}
         />

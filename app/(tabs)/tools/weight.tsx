@@ -8,15 +8,15 @@ import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Alert, Dimensions, Platform, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { Alert, Platform, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
-import { LineChart } from 'react-native-gifted-charts';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import useSWR from 'swr';
 import { z } from 'zod';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import WeightTrendChart from '@/components/WeightTrendChart';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -25,7 +25,6 @@ import { createWeightEntries, fetchWeightEntries, removeWeightEntry } from '@/se
 import type { WeightEntry } from '@/types';
 
 const CHART_HEIGHT = 160;
-const Y_AXIS_WIDTH = 48;
 const OPENAI_API_KEY = process.env.EXPO_PUBLIC_OPENAI_API_KEY;
 const OPENAI_MODEL = 'gpt-4o-mini'; // fastest low-latency OpenAI option available
 const openai = OPENAI_API_KEY ? createOpenAI({ apiKey: OPENAI_API_KEY }) : null;
@@ -125,55 +124,6 @@ export default function WeightTool() {
     return sortedEntries.filter((entry) => new Date(entry.recordedAt).getTime() >= cutoff).reverse();
   }, [sortedEntries, chartRange, customRange]);
 
-  const chartStats = useMemo(() => {
-    if (!chartEntries.length) return null;
-    const values = chartEntries.map((entry) => entry.weight);
-    const min = Math.min(...values);
-    const max = Math.max(...values);
-    const padding = Math.max(1, (max - min) * 0.05);
-    return {
-      min,
-      max,
-      offset: min - padding,
-    };
-  }, [chartEntries]);
-
-  const chartData = useMemo(() => {
-    if (!chartStats) return [];
-    return chartEntries.map((entry) => ({
-      value: Number((entry.weight - chartStats.offset).toFixed(3)),
-      entry,
-    }));
-  }, [chartEntries, chartStats]);
-
-  const yAxisLabels = useMemo(() => {
-    if (!chartStats) return [];
-    const labelCount = 4;
-    const range = chartStats.max - chartStats.min || 1;
-    return Array.from({ length: labelCount }, (_, idx) => {
-      const value = chartStats.max - (idx / (labelCount - 1)) * range;
-      return value.toFixed(1);
-    });
-  }, [chartStats]);
-
-  const xAxisLabelTexts = useMemo(() => {
-    if (!chartEntries.length) return [];
-    const labelCount = Math.min(6, chartEntries.length);
-    const indices = new Set(
-      Array.from({ length: labelCount }, (_, idx) =>
-        Math.round((idx / Math.max(labelCount - 1, 1)) * (chartEntries.length - 1))
-      )
-    );
-    return chartEntries.map((entry, idx) =>
-      indices.has(idx)
-        ? new Date(entry.recordedAt).toLocaleDateString(undefined, {
-            month: 'short',
-            day: 'numeric',
-          })
-        : ''
-    );
-  }, [chartEntries]);
-
   const openDatePicker = useCallback(
     (field: 'start' | 'end') => {
       const currentDate = new Date(customRange?.[field] ?? Date.now());
@@ -211,9 +161,6 @@ export default function WeightTool() {
     },
     [customRange]
   );
-
-  const [graphWidth, setGraphWidth] = useState(Dimensions.get('window').width - 40);
-  const chartWidth = Math.max(160, graphWidth - Y_AXIS_WIDTH - 12);
 
   const weeklyGroups = useMemo(() => groupEntriesByWeek(sortedEntries), [sortedEntries]);
 
@@ -293,165 +240,81 @@ export default function WeightTool() {
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
       <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-        <ThemedView
-          style={styles.graphCard}
-          onLayout={(event) => setGraphWidth(event.nativeEvent.layout.width)}
-        >
-          <View style={styles.rangeSelector}>
-            {(['1w', '1m', '3m', '1y', 'all', 'custom'] as const).map((range) => (
-              <TouchableOpacity
-                key={range}
-                style={[
-                  styles.rangeTab,
-                  chartRange === range && styles.rangeTabActive,
-                ]}
-                onPress={() => setChartRange(range)}
-              >
-                <ThemedText
-                  style={[
-                    styles.rangeTabLabel,
-                    chartRange === range && styles.rangeTabLabelActive,
-                  ]}
-                >
-                  {range === '1w'
-                    ? '1W'
-                    : range === '1m'
-                    ? '1M'
-                    : range === '3m'
-                    ? '3M'
-                    : range === '1y'
-                    ? '1Y'
-                    : range === 'all'
-                    ? 'All'
-                    : 'Custom'}
-                </ThemedText>
-              </TouchableOpacity>
-            ))}
-          </View>
+        <ThemedView style={styles.graphCard}>
+          <WeightTrendChart
+            entries={chartEntries}
+            title="Weight"
+            subtitle={getRangeSubtitle(chartRange)}
+            emptyMessage="Log weights to see your trend line here."
+            height={CHART_HEIGHT}
+            wrapInCard={false}
+            topContent={
+              <>
+                <View style={styles.rangeSelector}>
+                  {(['1w', '1m', '3m', '1y', 'all', 'custom'] as const).map((range) => (
+                    <TouchableOpacity
+                      key={range}
+                      style={[
+                        styles.rangeTab,
+                        chartRange === range && styles.rangeTabActive,
+                      ]}
+                      onPress={() => setChartRange(range)}
+                    >
+                      <ThemedText
+                        style={[
+                          styles.rangeTabLabel,
+                          chartRange === range && styles.rangeTabLabelActive,
+                        ]}
+                      >
+                        {range === '1w'
+                          ? '1W'
+                          : range === '1m'
+                          ? '1M'
+                          : range === '3m'
+                          ? '3M'
+                          : range === '1y'
+                          ? '1Y'
+                          : range === 'all'
+                          ? 'All'
+                          : 'Custom'}
+                      </ThemedText>
+                    </TouchableOpacity>
+                  ))}
+                </View>
 
-          {chartRange === 'custom' && (
-            <View style={styles.customRangeRow}>
-              <View style={styles.customInputContainer}>
-                <ThemedText style={styles.customLabel}>Start</ThemedText>
-                <TouchableOpacity
-                  style={styles.customInput}
-                  onPress={() => openDatePicker('start')}
-                >
-                  <ThemedText style={styles.customInputText}>
-                    {customRange?.start
-                      ? new Date(customRange.start).toLocaleDateString()
-                      : 'Select date'}
-                  </ThemedText>
-                </TouchableOpacity>
-              </View>
-              <View style={styles.customInputContainer}>
-                <ThemedText style={styles.customLabel}>End</ThemedText>
-                <TouchableOpacity style={styles.customInput} onPress={() => openDatePicker('end')}>
-                  <ThemedText style={styles.customInputText}>
-                    {customRange?.end
-                      ? new Date(customRange.end).toLocaleDateString()
-                      : 'Select date'}
-                  </ThemedText>
-                </TouchableOpacity>
-              </View>
-              <TouchableOpacity style={styles.clearCustomButton} onPress={() => setCustomRange(null)}>
-                <ThemedText style={styles.clearCustomLabel}>Clear</ThemedText>
-              </TouchableOpacity>
-            </View>
-          )}
-
-          <View style={styles.graphHeader}>
-            <View>
-              <ThemedText type="title" style={styles.graphTitle}>
-                Weight
-              </ThemedText>
-              <ThemedText style={styles.graphSubtitle}>
-                {getRangeSubtitle(chartRange)}
-              </ThemedText>
-            </View>
-          </View>
-
-          {chartEntries.length === 0 ? (
-            <View style={styles.emptyGraph}>
-              <ThemedText style={styles.emptyGraphText}>
-                Log weights to see your trend line here.
-              </ThemedText>
-            </View>
-          ) : (
-            <View style={styles.chartRow}>
-              <View style={styles.yAxisColumn}>
-                {yAxisLabels.map((label, idx) => (
-                  <ThemedText key={`y-${label}-${idx}`} style={styles.yAxisLabel}>
-                    {label}
-                  </ThemedText>
-                ))}
-              </View>
-              <View style={[styles.chartWrapper, { width: chartWidth }]}>
-                <LineChart
-                  data={chartData}
-                  width={chartWidth}
-                  height={CHART_HEIGHT}
-                  areaChart
-                  adjustToWidth
-                  initialSpacing={0}
-                  endSpacing={0}
-                  disableScroll
-                  spacing={
-                    chartEntries.length > 1
-                      ? chartWidth / (chartEntries.length - 1)
-                      : chartWidth / 2
-                  }
-                  thickness={3}
-                  color={theme.primary}
-                  startFillColor={theme.primary}
-                  startOpacity={0.1}
-                  endFillColor={theme.card}
-                  endOpacity={0.01}
-                  yAxisLabelWidth={0}
-                  dataPointsColor={theme.primary}
-                  hideDataPoints
-                  curved
-                  xAxisColor={theme.separator}
-                  yAxisColor="transparent"
-                  xAxisLabelTexts={xAxisLabelTexts}
-                  xAxisLabelTextStyle={styles.xAxisLabel}
-                  showVerticalLines={false}
-                  hideRules
-                  hideYAxisText
-                  showScrollIndicator={false}
-                  pointerConfig={{
-                    pointerStripUptoDataPoint: true,
-                    pointerStripColor: theme.border,
-                    pointerStripWidth: 1,
-                    pointerColor: theme.primary,
-                    pointerLabelComponent: (items: { value: number; entry: WeightEntry }[]) => {
-                      const item = items?.[0];
-                      if (!item) return null;
-                      const entry = item.entry as WeightEntry;
-                      return (
-                        <View style={styles.chartTooltip}>
-                          <ThemedText style={styles.chartTooltipValue}>
-                            {entry.weight.toFixed(1)} {entry.unit ?? 'lb'}
-                          </ThemedText>
-                          <ThemedText style={styles.chartTooltipDate}>
-                            {new Date(entry.recordedAt).toLocaleString(undefined, {
-                              month: 'short',
-                              day: 'numeric',
-                              hour: 'numeric',
-                              minute: '2-digit',
-                            })}
-                          </ThemedText>
-                        </View>
-                      );
-                    },
-                    pointerVanishDelay: 0,
-                    activatePointersOnLongPress: false,
-                  }}
-                  isAnimated
-                />
-              </View>
-            </View>
-          )}
+                {chartRange === 'custom' && (
+                  <View style={styles.customRangeRow}>
+                    <View style={styles.customInputContainer}>
+                      <ThemedText style={styles.customLabel}>Start</ThemedText>
+                      <TouchableOpacity
+                        style={styles.customInput}
+                        onPress={() => openDatePicker('start')}
+                      >
+                        <ThemedText style={styles.customInputText}>
+                          {customRange?.start
+                            ? new Date(customRange.start).toLocaleDateString()
+                            : 'Select date'}
+                        </ThemedText>
+                      </TouchableOpacity>
+                    </View>
+                    <View style={styles.customInputContainer}>
+                      <ThemedText style={styles.customLabel}>End</ThemedText>
+                      <TouchableOpacity style={styles.customInput} onPress={() => openDatePicker('end')}>
+                        <ThemedText style={styles.customInputText}>
+                          {customRange?.end
+                            ? new Date(customRange.end).toLocaleDateString()
+                            : 'Select date'}
+                        </ThemedText>
+                      </TouchableOpacity>
+                    </View>
+                    <TouchableOpacity style={styles.clearCustomButton} onPress={() => setCustomRange(null)}>
+                      <ThemedText style={styles.clearCustomLabel}>Clear</ThemedText>
+                    </TouchableOpacity>
+                  </View>
+                )}
+              </>
+            }
+          />
         </ThemedView>
 
         <TouchableOpacity
@@ -563,62 +426,6 @@ const createStyles = (theme: typeof Colors.light) =>
       borderRadius: 16,
       backgroundColor: theme.card,
     },
-    chartTooltip: {
-      position: 'absolute',
-      top: 8,
-      width: 120,
-      padding: 8,
-      borderRadius: 10,
-      backgroundColor: theme.cardElevated,
-      borderWidth: 1,
-      borderColor: theme.border,
-      zIndex: 2,
-    },
-    chartTooltipValue: {
-      fontWeight: '700',
-      fontSize: 16,
-    },
-    chartTooltipDate: {
-      fontSize: 12,
-      color: theme.textSecondary,
-      marginTop: 2,
-    },
-    chartRow: {
-      flexDirection: 'row',
-      width: '100%',
-      alignItems: 'center',
-      gap: 8,
-    },
-    yAxisColumn: {
-      width: Y_AXIS_WIDTH,
-      height: CHART_HEIGHT,
-      justifyContent: 'space-between',
-    },
-    yAxisLabel: {
-      fontSize: 12,
-      color: theme.textSecondary,
-    },
-    chartWrapper: {
-      overflow: 'hidden',
-      borderRadius: 12,
-    },
-    xAxisRow: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      width: '100%',
-      marginTop: 12,
-      paddingHorizontal: 4,
-    },
-    xAxisLabel: {
-      fontSize: 12,
-      color: theme.textSecondary,
-      textAlign: 'center',
-      minWidth: 30,
-    },
-    graphHeader: {
-      width: '100%',
-      marginBottom: 12,
-    },
     rangeSelector: {
       flexDirection: 'row',
       flexWrap: 'wrap',
@@ -693,27 +500,6 @@ const createStyles = (theme: typeof Colors.light) =>
     clearCustomLabel: {
       color: theme.textSecondary,
       fontSize: 13,
-    },
-    graphTitle: {
-      fontSize: 24,
-    },
-    graphSubtitle: {
-      color: theme.textSecondary,
-      marginTop: 4,
-    },
-    emptyGraph: {
-      height: CHART_HEIGHT,
-      width: '100%',
-      borderRadius: 12,
-      borderWidth: 1,
-      borderColor: theme.border,
-      justifyContent: 'center',
-      alignItems: 'center',
-      paddingHorizontal: 16,
-    },
-    emptyGraphText: {
-      textAlign: 'center',
-      color: theme.textSecondary,
     },
     formCard: {
       padding: 20,

@@ -191,8 +191,17 @@ export default function YouScreen() {
                 Share something from the plus button to see it here.
               </ThemedText>
             ) : (
-              posts.map((post) => (
-                <PostCard key={post.id} post={post} theme={theme} onMediaPress={openMediaViewer} />
+              posts.map((post, index) => (
+                <View
+                  key={post.id}
+                  style={[
+                    styles.postCardWrapper,
+                    index === 0 && styles.postCardWrapperFirst,
+                    index === posts.length - 1 && styles.postCardWrapperLast,
+                  ]}
+                >
+                  <PostCard post={post} theme={theme} onMediaPress={openMediaViewer} />
+                </View>
               ))
             )}
           </View>
@@ -469,10 +478,10 @@ const createStyles = (theme: Theme) =>
     },
     postsSection: {
       marginTop: 8,
-      borderRadius: 20,
-      padding: 20,
-      backgroundColor: theme.card,
-      gap: 16,
+      borderRadius: 28,
+      padding: 12,
+      gap: 12,
+      backgroundColor: theme.background,
     },
     postsHeaderRow: {
       flexDirection: 'row',
@@ -502,6 +511,21 @@ const createStyles = (theme: Theme) =>
     },
     emptyPostsText: {
       color: theme.textSecondary,
+    },
+    postCardWrapper: {
+      padding: 20,
+      borderRadius: 20,
+      backgroundColor: theme.card,
+      shadowColor: theme.shadow,
+      shadowOpacity: 0.05,
+      shadowRadius: 10,
+      elevation: 2,
+    },
+    postCardWrapperFirst: {
+      marginTop: 4,
+    },
+    postCardWrapperLast: {
+      marginBottom: 4,
     },
   });
 

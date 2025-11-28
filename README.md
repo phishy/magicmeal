@@ -201,14 +201,7 @@ EXPO_PUBLIC_SENTRY_REPLAY_ON_ERROR_SAMPLE_RATE=1
 - **Image Picker**: expo-image-picker
 - **Food Database**: Open Food Facts API (free)
 
-## 🌟 Better than MyFitnessPal Because
 
-1. **No Ads** - Clean, distraction-free experience
-2. **AI Photo Recognition** - Just snap and log
-3. **Privacy-First** - Your data stays on your device
-4. **Free & Open Source** - No premium paywall
-5. **Modern UI** - Clean, intuitive interface
-6. **Fast** - Optimized for performance
 
 ## 📄 License
 

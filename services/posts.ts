@@ -1,12 +1,12 @@
 import { supabase } from '@/lib/supabase';
 import { getProfileIdOrThrow } from '@/services/helpers';
 import type {
-    Post,
-    PostLocationInput,
-    PostMedia,
-    PostMediaRecord,
-    PostRecord,
-    PostWithMedia,
+  Post,
+  PostLocationInput,
+  PostMedia,
+  PostMediaRecord,
+  PostRecord,
+  PostWithMedia,
 } from '@/types';
 
 export interface CreatePostMediaInput {

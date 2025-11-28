@@ -38,6 +38,8 @@ export default function FoodSearch() {
   const { theme } = useAppTheme();
   const openAiKey = getOpenAiApiKey();
   const PAGE_SIZE = 20;
+  const trimmedSearchQuery = searchQuery.trim();
+  const hasSearchQuery = trimmedSearchQuery.length > 0;
 
   const searchFood = async (query: string, page = 1, append = false) => {
     if (!query.trim()) {
@@ -162,10 +164,9 @@ export default function FoodSearch() {
   };
 
   const loadMoreResults = () => {
-    const trimmed = searchQuery.trim();
-    if (!trimmed || !hasMore || loadingMore || searching) return;
+    if (!trimmedSearchQuery || !hasMore || loadingMore || searching) return;
     const nextPage = currentPage + 1;
-    searchFood(trimmed, nextPage, true);
+    searchFood(trimmedSearchQuery, nextPage, true);
   };
 
   const dynamicStyles = createStyles(theme);
@@ -202,8 +203,7 @@ export default function FoodSearch() {
   );
 
   useEffect(() => {
-    const trimmed = searchQuery.trim();
-    if (!trimmed) {
+    if (!trimmedSearchQuery) {
       setResults([]);
       setSearching(false);
       setHasMore(false);
@@ -212,11 +212,11 @@ export default function FoodSearch() {
     }
 
     const timeout = setTimeout(() => {
-      searchFood(trimmed, 1, false);
+      searchFood(trimmedSearchQuery, 1, false);
     }, 400);
 
     return () => clearTimeout(timeout);
-  }, [searchQuery]);
+  }, [trimmedSearchQuery]);
 
   useEffect(() => {
     return () => {
@@ -312,14 +312,14 @@ export default function FoodSearch() {
         </>
       )}
 
-      {!searching && !transcribing && searchQuery && filteredResults.length === 0 && (
+      {!searching && !transcribing && hasSearchQuery && filteredResults.length === 0 && (
         <View style={dynamicStyles.emptyState}>
           <ThemedText style={dynamicStyles.emptyText}>No results found</ThemedText>
           <ThemedText style={dynamicStyles.emptySubtext}>Try a different search term</ThemedText>
         </View>
       )}
 
-      {!searching && !transcribing && !searchQuery && (
+      {!searching && !transcribing && !hasSearchQuery && (
         <View style={dynamicStyles.emptyState}>
           <ThemedText style={dynamicStyles.emptyText}>🔍 Search for food</ThemedText>
           <ThemedText style={dynamicStyles.emptySubtext}>
@@ -555,23 +555,39 @@ function MealSelectSheet({
 }) {
   const { theme } = useAppTheme();
 
+  if (!visible) {
+    return null;
+  }
+
+  const sheetStyle = [mealSheetStyles.sheet, { backgroundColor: theme.card }];
+  const mealButtons = mealOptions.map((meal) => (
+    <TouchableOpacity
+      key={meal}
+      style={[mealSheetStyles.mealButton, { backgroundColor: theme.cardElevated }]}
+      onPress={() => onSelect(meal)}
+    >
+      <MaterialIcons name="restaurant" size={20} color={theme.primary} />
+      <ThemedText style={mealSheetStyles.mealLabel}>
+        {meal.charAt(0).toUpperCase() + meal.slice(1)}
+      </ThemedText>
+    </TouchableOpacity>
+  ));
+
   return (
     <Modal transparent visible={visible} animationType="slide" onRequestClose={onClose}>
-      <TouchableOpacity style={mealSheetStyles.backdrop} activeOpacity={1} onPress={onClose} />
-      <ThemedView style={[mealSheetStyles.sheet, { backgroundColor: theme.card }]}>
-        <View style={mealSheetStyles.handle} />
-        <ThemedText style={mealSheetStyles.title}>Add to meal</ThemedText>
-        {mealOptions.map((meal) => (
-          <TouchableOpacity
-            key={meal}
-            style={[mealSheetStyles.mealButton, { backgroundColor: theme.cardElevated }]}
-            onPress={() => onSelect(meal)}
-          >
-            <MaterialIcons name="restaurant" size={20} color={theme.primary} />
-            <ThemedText style={mealSheetStyles.mealLabel}>{meal.charAt(0).toUpperCase() + meal.slice(1)}</ThemedText>
-          </TouchableOpacity>
-        ))}
-      </ThemedView>
+      {[
+        <TouchableOpacity
+          key="backdrop"
+          style={mealSheetStyles.backdrop}
+          activeOpacity={1}
+          onPress={onClose}
+        />,
+        <ThemedView key="sheet" style={sheetStyle}>
+          <View style={mealSheetStyles.handle} />
+          <ThemedText style={mealSheetStyles.title}>Add to meal</ThemedText>
+          {mealButtons}
+        </ThemedView>,
+      ]}
     </Modal>
   );
 }

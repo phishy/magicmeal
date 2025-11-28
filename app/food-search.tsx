@@ -17,8 +17,8 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import type { Theme } from '@/constants/theme';
 import { useAppTheme } from '@/providers/ThemePreferenceProvider';
+import { searchFoods } from '@/services/foodSearch';
 import { createMeal, mapFoodToMealInput } from '@/services/meals';
-import { searchFoodProducts } from '@/services/openFoodFacts';
 import { getOpenAiApiKey, transcribeAudioFile } from '@/services/openai';
 import type { FoodItem, MealType } from '@/types';
 
@@ -54,7 +54,7 @@ export default function FoodSearch() {
     }
 
     try {
-      const { items, hasMore: more } = await searchFoodProducts({
+      const { items, hasMore: more } = await searchFoods({
         query,
         page,
         pageSize: PAGE_SIZE,

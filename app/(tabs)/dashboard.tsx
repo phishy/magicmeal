@@ -7,7 +7,7 @@ import type { Theme } from '@/constants/theme';
 import { useAppTheme } from '@/providers/ThemePreferenceProvider';
 import { fetchMealsForDate } from '@/services/meals';
 import { fetchWeightEntries } from '@/services/weight';
-import type { MealEntry, WeightEntry } from '@/types';
+import type { MacroProgressItem, MealEntry, WeightEntry } from '@/types';
 import { useRouter } from 'expo-router';
 import { useMemo } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
@@ -15,6 +15,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import useSWR from 'swr';
 
 const CHART_HEIGHT = 160;
+const MACRO_SPLIT = {
+  protein: 0.3,
+  carbs: 0.4,
+  fat: 0.3,
+} as const;
 
 export default function DashboardScreen() {
   const { theme } = useAppTheme();
@@ -74,6 +79,52 @@ export default function DashboardScreen() {
 
   const calorieGoal = 2000;
 
+  const macroGoals = useMemo(() => {
+    const safeGoal = Math.max(calorieGoal, 1);
+    return {
+      protein: Math.round((safeGoal * MACRO_SPLIT.protein) / 4),
+      carbs: Math.round((safeGoal * MACRO_SPLIT.carbs) / 4),
+      fat: Math.round((safeGoal * MACRO_SPLIT.fat) / 9),
+    };
+  }, [calorieGoal]);
+
+  const macroProgress = useMemo<MacroProgressItem[]>(
+    () => [
+      {
+        key: 'carbs',
+        label: 'Carbohydrates',
+        consumed: totals.carbs,
+        goal: macroGoals.carbs,
+        color: theme.metricCarbs,
+      },
+      {
+        key: 'fat',
+        label: 'Fat',
+        consumed: totals.fat,
+        goal: macroGoals.fat,
+        color: theme.metricFat,
+      },
+      {
+        key: 'protein',
+        label: 'Protein',
+        consumed: totals.protein,
+        goal: macroGoals.protein,
+        color: theme.metricProtein,
+      },
+    ],
+    [
+      macroGoals.carbs,
+      macroGoals.fat,
+      macroGoals.protein,
+      theme.metricCarbs,
+      theme.metricFat,
+      theme.metricProtein,
+      totals.carbs,
+      totals.fat,
+      totals.protein,
+    ]
+  );
+
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
       <ScrollView contentContainerStyle={styles.container}>
@@ -86,7 +137,7 @@ export default function DashboardScreen() {
           goal={calorieGoal}
           consumed={totals.calories}
           exercise={0}
-          onPress={() => router.push('/food-search')}
+          macros={macroProgress}
         />
 
         <View style={styles.grid}>

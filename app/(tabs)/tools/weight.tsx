@@ -5,7 +5,15 @@ import DateTimePicker, {
 import * as DocumentPicker from 'expo-document-picker';
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Alert, Platform, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Alert,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import useSWR from 'swr';
@@ -417,6 +425,14 @@ export default function WeightTool() {
           style={styles.iosPicker}
         />
       )}
+      {importing && (
+        <View style={styles.importOverlay} pointerEvents="auto">
+          <View style={styles.importOverlayContent}>
+            <ActivityIndicator size="large" color={theme.primary} />
+            <ThemedText style={styles.importOverlayText}>Importing weights…</ThemedText>
+          </View>
+        </View>
+      )}
     </SafeAreaView>
   );
 }
@@ -679,6 +695,25 @@ const createStyles = (theme: Theme) =>
     },
     iosPicker: {
       backgroundColor: theme.card,
+    },
+    importOverlay: {
+      ...StyleSheet.absoluteFillObject,
+      justifyContent: 'center',
+      alignItems: 'center',
+      backgroundColor: 'rgba(0,0,0,0.45)',
+      zIndex: 10,
+    },
+    importOverlayContent: {
+      paddingVertical: 20,
+      paddingHorizontal: 24,
+      borderRadius: 16,
+      backgroundColor: theme.card,
+      alignItems: 'center',
+      gap: 12,
+    },
+    importOverlayText: {
+      color: theme.text,
+      fontWeight: '600',
     },
   });
 

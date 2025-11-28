@@ -30,6 +30,31 @@ export interface FoodItem {
   verified?: boolean;
 }
 
+export interface FoodSearchParams {
+  query: string;
+  page?: number;
+  pageSize?: number;
+}
+
+export interface FoodSearchResult {
+  items: FoodItem[];
+  hasMore: boolean;
+  metadata?: Record<string, unknown>;
+}
+
+export type FoodSearchAdapterId = 'open-food-facts' | 'ai-fast';
+
+export interface FoodSearchRequest extends FoodSearchParams {
+  adapterId?: FoodSearchAdapterId;
+}
+
+export interface FoodSearchAdapter {
+  id: FoodSearchAdapterId;
+  label: string;
+  isAvailable?: () => boolean;
+  search: (params: FoodSearchParams) => Promise<FoodSearchResult>;
+}
+
 export interface OpenFoodFactsNutriments {
   ['energy-kcal']?: number;
   ['energy-kcal_100g']?: number;
@@ -104,11 +129,19 @@ export interface WeightTrendChartProps {
   style?: StyleProp<ViewStyle>;
 }
 
+export interface MacroProgressItem {
+  key: 'protein' | 'carbs' | 'fat';
+  label: string;
+  consumed: number;
+  goal: number;
+  color: string;
+}
+
 export interface CalorieProgressCardProps {
   goal: number;
   consumed: number;
   exercise?: number;
-  onPress?: () => void;
+  macros?: MacroProgressItem[];
 }
 
 export type WeeklyGoalType = 'lose' | 'gain' | 'maintain';

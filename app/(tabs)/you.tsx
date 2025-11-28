@@ -1,12 +1,9 @@
-import { Image } from 'expo-image';
-import { useFocusEffect, useRouter } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { useRouter } from 'expo-router';
+import { useState } from 'react';
 import {
-  ActivityIndicator,
   Alert,
   Modal,
   Platform,
-  RefreshControl,
   ScrollView,
   StyleSheet,
   TouchableOpacity,
@@ -22,23 +19,12 @@ import { ThemeCatalog, type Theme, type ThemeName } from '@/constants/theme';
 import { useSession } from '@/providers/SessionProvider';
 import { useAppTheme } from '@/providers/ThemePreferenceProvider';
 import { signOut } from '@/services/auth';
-import { fetchMyPosts } from '@/services/posts';
-import type { PostWithMedia } from '@/types';
-import { PostMediaViewer } from '../../components/PostMediaViewer';
-
 export default function YouScreen() {
   const { theme, themeName, setThemeName } = useAppTheme();
   const styles = createStyles(theme);
   const { session } = useSession();
   const router = useRouter();
   const [themePickerVisible, setThemePickerVisible] = useState(false);
-  const [posts, setPosts] = useState<PostWithMedia[]>([]);
-  const [postsLoading, setPostsLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [postsError, setPostsError] = useState<string | null>(null);
-  const [viewerVisible, setViewerVisible] = useState(false);
-  const [viewerImages, setViewerImages] = useState<{ uri: string }[]>([]);
-  const [viewerIndex, setViewerIndex] = useState(0);
 
   const executeSignOut = async () => {
     try {
@@ -68,68 +54,9 @@ export default function YouScreen() {
     ]);
   };
 
-  const loadPosts = useCallback(
-    async (options?: { silent?: boolean }) => {
-      if (!options?.silent) {
-        setPostsLoading(true);
-      }
-      setPostsError(null);
-      try {
-        const data = await fetchMyPosts();
-        setPosts(data);
-      } catch (error: any) {
-        setPostsError(error?.message ?? 'Failed to load posts.');
-      } finally {
-        if (!options?.silent) {
-          setPostsLoading(false);
-        }
-      }
-    },
-    []
-  );
-
-  useFocusEffect(
-    useCallback(() => {
-      loadPosts();
-    }, [loadPosts])
-  );
-
-  const handleRefresh = useCallback(async () => {
-    setRefreshing(true);
-    await loadPosts({ silent: true });
-    setRefreshing(false);
-  }, [loadPosts]);
-
-  const handleCreatePost = () => {
-    router.push('/post/create');
-  };
-
-  const openMediaViewer = useCallback((post: PostWithMedia, index: number) => {
-    const images = post.media
-      .map((media) => media.publicUrl ?? media.storagePath)
-      .filter(Boolean)
-      .map((uri) => ({ uri }));
-
-    if (!images.length) return;
-    setViewerImages(images);
-    setViewerIndex(index);
-    setViewerVisible(true);
-  }, []);
-
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
-      <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={styles.scrollContent}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={handleRefresh}
-            tintColor={theme.primary}
-            colors={[theme.primary]}
-          />
-        }
-      >
+      <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
         <ThemedView style={styles.container}>
           <View style={styles.header}>
             <ThemedText type="title">You</ThemedText>
@@ -164,56 +91,21 @@ export default function YouScreen() {
             <IconSymbol name="chevron.right" size={16} color={theme.textSecondary} />
           </TouchableOpacity>
 
+          <TouchableOpacity style={styles.menuButton} onPress={() => router.push('/developer-settings')}>
+            <IconSymbol name="wrench.and.screwdriver.fill" size={20} color={theme.secondary} />
+            <View style={styles.menuButtonContent}>
+              <ThemedText style={styles.menuButtonText}>Developer Settings</ThemedText>
+              <ThemedText style={styles.menuButtonCaption}>Switch AI providers & tools</ThemedText>
+            </View>
+            <IconSymbol name="chevron.right" size={16} color={theme.textSecondary} />
+          </TouchableOpacity>
+
           <TouchableOpacity style={[styles.menuButton, styles.signOutButton]} onPress={handleSignOut}>
             <IconSymbol name="rectangle.portrait.and.arrow.right" size={20} color={theme.warning} />
             <ThemedText style={[styles.menuButtonText, styles.signOutButtonText]}>Sign Out</ThemedText>
           </TouchableOpacity>
-
-          <View style={styles.postsSection}>
-            <View style={styles.postsHeaderRow}>
-              <ThemedText style={styles.postsTitle}>Your Posts</ThemedText>
-              <TouchableOpacity onPress={handleCreatePost}>
-                <ThemedText style={styles.newPostButton}>New Post</ThemedText>
-              </TouchableOpacity>
-            </View>
-
-            {postsLoading ? (
-              <ActivityIndicator color={theme.primary} style={styles.postsLoader} />
-            ) : postsError ? (
-              <View style={styles.postsErrorBox}>
-                <ThemedText style={styles.postsErrorText}>{postsError}</ThemedText>
-                <TouchableOpacity onPress={() => loadPosts()}>
-                  <ThemedText style={styles.retryButtonText}>Try again</ThemedText>
-                </TouchableOpacity>
-              </View>
-            ) : posts.length === 0 ? (
-              <ThemedText style={styles.emptyPostsText}>
-                Share something from the plus button to see it here.
-              </ThemedText>
-            ) : (
-              posts.map((post, index) => (
-                <View
-                  key={post.id}
-                  style={[
-                    styles.postCardWrapper,
-                    index === 0 && styles.postCardWrapperFirst,
-                    index === posts.length - 1 && styles.postCardWrapperLast,
-                  ]}
-                >
-                  <PostCard post={post} theme={theme} onMediaPress={openMediaViewer} />
-                </View>
-              ))
-            )}
-          </View>
         </ThemedView>
       </ScrollView>
-      <PostMediaViewer
-        visible={viewerVisible}
-        images={viewerImages}
-        initialIndex={viewerIndex}
-        onClose={() => setViewerVisible(false)}
-      />
-
       <Modal transparent visible={themePickerVisible} animationType="fade" onRequestClose={() => setThemePickerVisible(false)}>
         <TouchableWithoutFeedback onPress={() => setThemePickerVisible(false)}>
           <View style={[styles.modalBackdrop, { backgroundColor: theme.modalBackdrop }]} />
@@ -264,79 +156,6 @@ export default function YouScreen() {
 }
 
 const themeOptions = Object.entries(ThemeCatalog) as [ThemeName, (typeof ThemeCatalog)[ThemeName]][];
-
-const PostCard = ({
-  post,
-  theme,
-  onMediaPress,
-}: {
-  post: PostWithMedia;
-  theme: Theme;
-  onMediaPress: (post: PostWithMedia, index: number) => void;
-}) => {
-  const locationText = formatPostLocation(post);
-  return (
-    <View style={[stylesPostCard.card, { backgroundColor: theme.card }]}>
-      <View style={stylesPostCard.headerRow}>
-        <ThemedText style={[stylesPostCard.dateText, { color: theme.textSecondary }]}>
-          {formatPostDate(post.createdAt)}
-        </ThemedText>
-        <ThemedText style={[stylesPostCard.metaText, { color: theme.textTertiary }]}>
-          {post.mediaCount ? `${post.mediaCount} photo${post.mediaCount > 1 ? 's' : ''}` : 'Text only'}
-        </ThemedText>
-      </View>
-      {locationText ? (
-        <View style={stylesPostCard.locationRow}>
-          <IconSymbol name="mappin.circle.fill" size={16} color={theme.primary} />
-          <ThemedText style={stylesPostCard.locationText}>{locationText}</ThemedText>
-        </View>
-      ) : null}
-      {post.body ? <ThemedText style={stylesPostCard.bodyText}>{post.body}</ThemedText> : null}
-      {post.media.length ? (
-        <View style={stylesPostCard.mediaGrid}>
-          {post.media.map((media, index) => (
-            <TouchableOpacity
-              key={media.id}
-              activeOpacity={0.9}
-              onPress={() => onMediaPress(post, index)}
-              style={[
-                stylesPostCard.mediaWrapper,
-                post.media.length === 1 && stylesPostCard.mediaWrapperSingle,
-              ]}
-            >
-              <Image
-                source={{ uri: media.publicUrl ?? media.storagePath }}
-                style={stylesPostCard.mediaImage}
-                contentFit="cover"
-              />
-            </TouchableOpacity>
-          ))}
-        </View>
-      ) : null}
-    </View>
-  );
-};
-
-const formatPostDate = (iso: string) => {
-  try {
-    return new Intl.DateTimeFormat(undefined, {
-      dateStyle: 'medium',
-      timeStyle: 'short',
-    }).format(new Date(iso));
-  } catch {
-    return iso;
-  }
-};
-
-const formatPostLocation = (post: PostWithMedia) => {
-  if (post.locationName) {
-    return post.locationName;
-  }
-  if (post.locationLatitude !== undefined && post.locationLongitude !== undefined) {
-    return `${post.locationLatitude.toFixed(4)}, ${post.locationLongitude.toFixed(4)}`;
-  }
-  return null;
-};
 
 const createStyles = (theme: Theme) =>
   StyleSheet.create({
@@ -476,106 +295,4 @@ const createStyles = (theme: Theme) =>
       color: theme.primary,
       fontWeight: '600',
     },
-    postsSection: {
-      marginTop: 8,
-      borderRadius: 28,
-      padding: 12,
-      gap: 12,
-      backgroundColor: theme.background,
-    },
-    postsHeaderRow: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-    },
-    postsTitle: {
-      fontSize: 18,
-      fontWeight: '600',
-    },
-    newPostButton: {
-      color: theme.primary,
-      fontWeight: '600',
-    },
-    postsLoader: {
-      marginVertical: 12,
-    },
-    postsErrorBox: {
-      gap: 8,
-    },
-    postsErrorText: {
-      color: theme.danger,
-    },
-    retryButtonText: {
-      color: theme.primary,
-      fontWeight: '600',
-    },
-    emptyPostsText: {
-      color: theme.textSecondary,
-    },
-    postCardWrapper: {
-      padding: 20,
-      borderRadius: 20,
-      backgroundColor: theme.card,
-      shadowColor: theme.shadow,
-      shadowOpacity: 0.05,
-      shadowRadius: 10,
-      elevation: 2,
-    },
-    postCardWrapperFirst: {
-      marginTop: 4,
-    },
-    postCardWrapperLast: {
-      marginBottom: 4,
-    },
   });
-
-const stylesPostCard = StyleSheet.create({
-  card: {
-    borderRadius: 16,
-    padding: 16,
-    gap: 12,
-  },
-  headerRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  dateText: {
-    fontSize: 13,
-    fontWeight: '500',
-  },
-  metaText: {
-    fontSize: 13,
-  },
-  bodyText: {
-    fontSize: 16,
-    lineHeight: 22,
-  },
-  mediaGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  mediaWrapper: {
-    width: '48%',
-    aspectRatio: 1,
-    borderRadius: 12,
-    overflow: 'hidden',
-  },
-  mediaWrapperSingle: {
-    width: '100%',
-  },
-  mediaImage: {
-    width: '100%',
-    height: '100%',
-  },
-  locationRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  locationText: {
-    fontSize: 13,
-    fontWeight: '500',
-  },
-});
-

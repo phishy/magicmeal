@@ -26,7 +26,7 @@ import type { Theme } from '@/constants/theme';
 import { filterEntriesByRange, getTrendRangeLabel, getTrendRangeSubtitle, TREND_RANGE_PRESETS } from '@/lib/trendRange';
 import { useAppTheme } from '@/providers/ThemePreferenceProvider';
 import { createWeightEntries, fetchWeightEntries, removeWeightEntry } from '@/services/weight';
-import { canUseAiWeightImport, parseWeightFileWithAI, readWeightImportFile } from '@/services/weightImport';
+import { canUseWeightImport, parseWeightFile, readWeightImportFile } from '@/services/weightImport';
 import type { DateRange, TrendRangePreset, WeightEntry } from '@/types';
 
 const CHART_HEIGHT = 160;
@@ -46,16 +46,17 @@ export default function WeightTool() {
     value: Date;
     onChange: (event: DateTimePickerEvent, date?: Date) => void;
   } | null>(null);
-  const canImport = pickerAvailable && canUseAiWeightImport();
+  const importAvailable = canUseWeightImport();
+  const canImport = pickerAvailable && importAvailable;
   const importHelperText = useMemo(() => {
     if (!pickerAvailable) {
       return 'File import is not supported on this platform.';
     }
-    if (!canUseAiWeightImport()) {
+    if (!importAvailable) {
       return 'Set EXPO_PUBLIC_OPENAI_API_KEY to enable AI-powered imports.';
     }
     return null;
-  }, [pickerAvailable]);
+  }, [pickerAvailable, importAvailable]);
 
   useEffect(() => {
     let mounted = true;
@@ -168,14 +169,6 @@ export default function WeightTool() {
       return;
     }
 
-    if (!canUseAiWeightImport()) {
-      Alert.alert(
-        'Missing configuration',
-        'Set EXPO_PUBLIC_OPENAI_API_KEY in your environment to enable importing.'
-      );
-      return;
-    }
-
     let result: DocumentResult | null = null;
     try {
       result = await DocumentPicker.getDocumentAsync({
@@ -198,7 +191,7 @@ export default function WeightTool() {
       const asset = result.assets[0] as PickerAsset;
       const fileContent = await readWeightImportFile(asset);
 
-      const parsedEntries = await parseWeightFileWithAI(fileContent);
+      const parsedEntries = await parseWeightFile(fileContent);
 
       if (!parsedEntries.length) {
         Alert.alert('No entries detected', 'Could not find any weights in that file.');

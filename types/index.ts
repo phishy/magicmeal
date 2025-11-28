@@ -45,10 +45,40 @@ export interface FoodItem {
   verified?: boolean;
 }
 
+export interface FoodNutritionFacts {
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+  fiber?: number;
+  sugar?: number;
+  sodium?: number;
+  saturatedFat?: number;
+  polyunsaturatedFat?: number;
+  monounsaturatedFat?: number;
+  transFat?: number;
+  cholesterol?: number;
+}
+
+export type FoodSourceType = 'barcode' | 'search' | 'photo' | 'manual';
+
+export interface FoodLogCandidate {
+  id: string;
+  name: string;
+  brand?: string;
+  servingSize?: string;
+  defaultServings?: number;
+  source: FoodSourceType;
+  barcode?: string;
+  nutrition: FoodNutritionFacts;
+  rawFood?: Record<string, unknown>;
+}
+
 export interface FoodSearchParams {
   query: string;
   page?: number;
   pageSize?: number;
+  signal?: AbortSignal;
 }
 
 export interface FoodSearchResult {
@@ -102,6 +132,31 @@ export interface TranscriptionFilePayload {
   type: string;
 }
 
+export type AiProviderId = 'openai' | 'ollama';
+
+export interface AiModelOption {
+  id: string;
+  label: string;
+  description?: string;
+}
+
+export interface AiProviderOption {
+  id: AiProviderId;
+  label: string;
+  description?: string;
+  models: AiModelOption[];
+  requiresApiKey?: boolean;
+  docsUrl?: string;
+  baseUrlEnvVar?: string;
+  supportsDynamicModels?: boolean;
+}
+
+export interface DeveloperSettings {
+  aiProviderId: AiProviderId;
+  aiModelId: string;
+  foodSearchProviderId?: FoodSearchAdapterId;
+}
+
 export interface BloodPressureEntry {
   id: string;
   profileId?: string;
@@ -121,6 +176,12 @@ export interface WeightEntry {
   recordedAt: string;
 }
 
+export interface WeightInput {
+  weight: number;
+  unit?: WeightUnit;
+  recordedAt?: string;
+}
+
 export interface WeightEntryRecord {
   id: string;
   profile_id: string;
@@ -128,6 +189,19 @@ export interface WeightEntryRecord {
   unit: WeightUnit;
   recorded_at: string;
   created_at: string;
+}
+
+export type WeightImportFormatId = 'fitbit-weight-csv';
+
+export interface WeightImportHandler {
+  id: WeightImportFormatId;
+  label: string;
+  /**
+   * Return a score between 0 and 1 indicating how confident the importer is that it can parse the file.
+   * Values <= 0 are treated as "no match".
+   */
+  detect: (fileContent: string) => number;
+  parse: (fileContent: string) => WeightInput[];
 }
 
 export interface Post {

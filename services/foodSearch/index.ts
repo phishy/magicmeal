@@ -6,15 +6,14 @@ import type {
   FoodSearchRequest,
   FoodSearchResult,
 } from '@/types';
+import { getDeveloperSettingsSnapshot } from '@/lib/developerSettingsStore';
 
 const ADAPTERS: Record<FoodSearchAdapterId, FoodSearchAdapter> = {
   [openFoodFactsAdapter.id]: openFoodFactsAdapter,
   [aiFoodSearchAdapter.id]: aiFoodSearchAdapter,
 };
 
-
 const DEFAULT_ADAPTER_ID: FoodSearchAdapterId = 'ai-fast';
-// const DEFAULT_ADAPTER_ID: FoodSearchAdapterId = 'open-food-facts';
 
 export function listFoodSearchAdapters(): FoodSearchAdapter[] {
   return Object.values(ADAPTERS);
@@ -51,7 +50,8 @@ function pickAdapter(preferredId?: FoodSearchAdapterId): FoodSearchAdapter {
 }
 
 export async function searchFoods(request: FoodSearchRequest): Promise<FoodSearchResult> {
-  const adapter = pickAdapter(request.adapterId ?? DEFAULT_ADAPTER_ID);
+  const snapshot = getDeveloperSettingsSnapshot();
+  const adapter = pickAdapter(request.adapterId ?? snapshot.foodSearchProviderId ?? DEFAULT_ADAPTER_ID);
   const { adapterId, ...params } = request;
   const result = await adapter.search(params);
   return {

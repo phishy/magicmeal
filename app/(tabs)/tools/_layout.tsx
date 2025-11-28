@@ -16,6 +16,7 @@ export default function ToolsLayout() {
     >
       <Stack.Screen name="index" options={{ title: 'Tools' }} />
       <Stack.Screen name="blood-pressure" options={{ title: 'Blood Pressure' }} />
+      <Stack.Screen name="feed" options={{ title: 'Feed' }} />
       <Stack.Screen name="weight" options={{ title: 'Weight' }} />
     </Stack>
   );

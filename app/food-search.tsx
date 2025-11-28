@@ -1,7 +1,7 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { Audio } from 'expo-av';
 import { useRouter } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -17,10 +17,18 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import type { Theme } from '@/constants/theme';
 import { useAppTheme } from '@/providers/ThemePreferenceProvider';
+import { getOpenAiApiKey, transcribeAudioFile } from '@/services/ai';
 import { searchFoods } from '@/services/foodSearch';
 import { createMeal, mapFoodToMealInput } from '@/services/meals';
-import { getOpenAiApiKey, transcribeAudioFile } from '@/services/openai';
 import type { FoodItem, MealType } from '@/types';
+
+const SEARCH_DEBOUNCE_MS = 600;
+
+const isAbortError = (error: unknown): boolean =>
+  typeof error === 'object' &&
+  error !== null &&
+  'name' in error &&
+  (error as { name?: string }).name === 'AbortError';
 
 export default function FoodSearch() {
   const [searchQuery, setSearchQuery] = useState('');
@@ -40,9 +48,16 @@ export default function FoodSearch() {
   const PAGE_SIZE = 20;
   const trimmedSearchQuery = searchQuery.trim();
   const hasSearchQuery = trimmedSearchQuery.length > 0;
+  const searchAbortController = useRef<AbortController | null>(null);
+  const latestSearchRequestId = useRef(0);
 
   const searchFood = async (query: string, page = 1, append = false) => {
-    if (!query.trim()) {
+    const normalizedQuery = query.trim();
+    if (!normalizedQuery) {
+      if (searchAbortController.current) {
+        searchAbortController.current.abort();
+        searchAbortController.current = null;
+      }
       setResults([]);
       setHasMore(false);
       setCurrentPage(1);
@@ -55,23 +70,40 @@ export default function FoodSearch() {
       setSearching(true);
     }
 
+    if (searchAbortController.current) {
+      searchAbortController.current.abort();
+    }
+
+    const controller = new AbortController();
+    searchAbortController.current = controller;
+    const requestId = latestSearchRequestId.current + 1;
+    latestSearchRequestId.current = requestId;
+
     try {
       const { items, hasMore: more } = await searchFoods({
-        query,
+        query: normalizedQuery,
         page,
         pageSize: PAGE_SIZE,
+        signal: controller.signal,
       });
 
       setHasMore(more);
       setCurrentPage(page);
       setResults((prev) => (append ? [...prev, ...items] : items));
     } catch (error) {
+      if (isAbortError(error)) {
+        return;
+      }
       console.error('Search error:', error);
       Alert.alert('Error', 'Failed to search. Please try again.');
     } finally {
+      if (searchAbortController.current === controller) {
+        searchAbortController.current = null;
+      }
+
       if (append) {
         setLoadingMore(false);
-      } else {
+      } else if (latestSearchRequestId.current === requestId) {
         setSearching(false);
       }
     }
@@ -213,10 +245,19 @@ export default function FoodSearch() {
 
     const timeout = setTimeout(() => {
       searchFood(trimmedSearchQuery, 1, false);
-    }, 400);
+    }, SEARCH_DEBOUNCE_MS);
 
     return () => clearTimeout(timeout);
   }, [trimmedSearchQuery]);
+
+  useEffect(() => {
+    return () => {
+      if (searchAbortController.current) {
+        searchAbortController.current.abort();
+        searchAbortController.current = null;
+      }
+    };
+  }, []);
 
   useEffect(() => {
     return () => {

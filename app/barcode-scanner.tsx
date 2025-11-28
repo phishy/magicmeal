@@ -1,10 +1,9 @@
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import type { Theme } from '@/constants/theme';
+import { stashFoodLogCandidate } from '@/lib/pendingFoodLog';
 import { useAppTheme } from '@/providers/ThemePreferenceProvider';
-import { createMeal } from '@/services/meals';
-import { lookupProductByBarcode } from '@/services/openFoodFacts';
-import type { MealType } from '@/types';
+import { lookupProductByBarcode, mapProductToFoodLogCandidate } from '@/services/openFoodFacts';
 import { Camera, CameraView } from 'expo-camera';
 import { useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
@@ -46,8 +45,16 @@ export default function BarcodeScanner() {
       const product = await lookupProductByBarcode(barcode);
 
       if (product) {
-        const nutriments = product.nutriments || {};
-        await addToLog(product, nutriments);
+        const candidate = mapProductToFoodLogCandidate(product, 'barcode');
+        if (!candidate) {
+          Alert.alert('Unsupported product', 'Unable to prepare this food for logging.');
+          resetScanState();
+          return;
+        }
+
+        const token = stashFoodLogCandidate(candidate);
+        resetScanState();
+        router.push({ pathname: '/food-detail', params: { token } });
         return;
       }
 
@@ -74,35 +81,6 @@ export default function BarcodeScanner() {
       Alert.alert('Error', 'Failed to look up barcode. Please try again.');
       resetScanState();
     }
-  };
-
-  const addToLog = async (product: any, nutriments: any) => {
-    try {
-      await createMeal({
-        name: product.product_name || 'Unknown Product',
-        serving: product.serving_size,
-        calories: Math.round(nutriments.energy_value || nutriments['energy-kcal'] || 0),
-        protein: Math.round(nutriments.proteins || 0),
-        carbs: Math.round(nutriments.carbohydrates || 0),
-        fat: Math.round(nutriments.fat || 0),
-        mealType: getCurrentMealType(),
-        rawFood: { product, nutriments, source: 'barcode' },
-      });
-
-      resetScanState();
-      router.back();
-    } catch {
-      Alert.alert('Error', 'Failed to save meal. Please try again.');
-      setScanned(false);
-    }
-  };
-
-  const getCurrentMealType = (): MealType => {
-    const hour = new Date().getHours();
-    if (hour < 11) return 'breakfast';
-    if (hour < 15) return 'lunch';
-    if (hour < 20) return 'dinner';
-    return 'snack';
   };
 
   const dynamicStyles = createStyles(theme);

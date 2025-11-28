@@ -8,6 +8,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { sentryConfig, shouldInitSentry } from '@/constants/env';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { DeveloperSettingsProvider } from '@/providers/DeveloperSettingsProvider';
 import { SessionProvider, useSession } from '@/providers/SessionProvider';
 import { ThemePreferenceProvider } from '@/providers/ThemePreferenceProvider';
 import type { AppStackScreenOptions } from '@/types';
@@ -54,9 +55,11 @@ export default Sentry.wrap(function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SessionProvider>
+        <DeveloperSettingsProvider>
         <ThemePreferenceProvider>
           <RootNavigation />
         </ThemePreferenceProvider>
+        </DeveloperSettingsProvider>
       </SessionProvider>
     </GestureHandlerRootView>
   );
@@ -81,6 +84,9 @@ function RootNavigation() {
             <Stack.Screen name="tools/weight" options={{ title: 'Weight' }} />
             <Stack.Screen name="post/create" options={{ headerShown: false }} />
             <Stack.Screen name="goals" options={{ title: 'Goals' }} />
+            <Stack.Screen name="developer-settings" options={{ title: 'Developer Settings' }} />
+            <Stack.Screen name="food-search" options={{ title: 'Search Food', headerShown: false }} />
+            <Stack.Screen name="food-detail" options={{ headerShown: false }} />
           </Stack>
           <StatusBar style="auto" />
         </>

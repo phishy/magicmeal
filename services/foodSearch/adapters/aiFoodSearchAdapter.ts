@@ -1,70 +1,42 @@
-import { generateObject } from 'ai';
 import { z } from 'zod';
 
+import { resolveApiUrl } from '@/lib/apiClient';
+import { getAiRuntimeSelection, isAiModelReady } from '@/services/ai';
+import { AiFoodItemSchema, AiFoodSearchSchema, MAX_AI_RESULTS } from '@/services/foodSearch/aiSchemas';
 import type { FoodItem, FoodSearchAdapter, FoodSearchParams, FoodSearchResult } from '@/types';
-import { getOpenAiClient } from '@/services/openai';
-
-const FAST_MODEL = 'gpt-4o-mini';
-const MAX_AI_RESULTS = 6;
-
-const AiFoodItemSchema = z.object({
-  name: z.string(),
-  brand: z.string().optional(),
-  calories: z.number().nonnegative(),
-  protein: z.number().nonnegative(),
-  carbs: z.number().nonnegative(),
-  fat: z.number().nonnegative(),
-  serving: z.string().optional(),
-  verified: z.boolean().optional(),
-});
-
-const AiFoodSearchSchema = z.object({
-  items: z.array(AiFoodItemSchema).max(MAX_AI_RESULTS).default([]),
-  reasoning: z.string().optional(),
-  references: z
-    .array(
-      z.object({
-        text: z.string(),
-        url: z.string().optional(),
-      })
-    )
-    .optional(),
-});
 
 export const aiFoodSearchAdapter: FoodSearchAdapter = {
   id: 'ai-fast',
   label: 'AI (Fast)',
-  isAvailable: () => Boolean(getOpenAiClient()),
+  isAvailable: () => isAiModelReady(),
   async search(params: FoodSearchParams): Promise<FoodSearchResult> {
-    const aiClient = getOpenAiClient();
-    if (!aiClient) {
-      throw new Error('AI search is unavailable. Set EXPO_PUBLIC_OPENAI_API_KEY.');
-    }
-
     const trimmedQuery = params.query.trim();
     if (!trimmedQuery) {
       return { items: [], hasMore: false };
     }
 
-    const { object } = await generateObject({
-      model: aiClient(FAST_MODEL),
-      schema: AiFoodSearchSchema,
-      temperature: 0.2,
-      system:
-        'You are a registered dietitian creating precise nutrition suggestions. ' +
-        'Always respond with at most six realistic grocery or restaurant items that match the user request. ' +
-        'Measurements should align with US nutrition labels and include calories, protein, carbs, fat, and serving size. ' +
-        'Return concise serving descriptions like "1 bar (50g)".',
-      prompt: [
-        `User search query: "${trimmedQuery}"`,
-        params.page && params.page > 1
-          ? 'Return alternative options compared to the previous page.'
-          : 'Provide your top matches.',
-        'If the user mentions a brand or restaurant, use it when known.',
-        'Favor items that are easy to log in a food diary.',
-      ].join('\n'),
+    const { providerId, modelId } = getAiRuntimeSelection();
+    const response = await fetch(resolveApiUrl('/api/ai/food-search'), {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      signal: params.signal,
+      body: JSON.stringify({
+        query: trimmedQuery,
+        page: params.page,
+        providerId,
+        modelId,
+      }),
     });
 
+    if (!response.ok) {
+      const error = await response.json().catch(() => null);
+      throw new Error(error?.error ?? 'AI search is unavailable. Try again later.');
+    }
+
+    const payload = await response.json();
+    const object = AiFoodSearchSchema.parse(payload);
     const aiItems = (object?.items ?? []).slice(0, MAX_AI_RESULTS);
     const items = aiItems.map((item, index) => normalizeAiFoodItem(item, index));
 

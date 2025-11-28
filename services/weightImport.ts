@@ -1,59 +1,58 @@
-import type { WeightInput } from '@/services/weight';
-import { getOpenAiClient, hasOpenAiClient } from '@/services/openai';
 import type { DocumentPickerAsset } from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import { Platform } from 'react-native';
-import { generateObject } from 'ai';
-import { z } from 'zod';
 
-const OPENAI_MODEL = 'gpt-4o-mini';
-
-const ParserResponseSchema = z.object({
-  parser: z.string(),
-  summary: z.string().optional(),
-});
+import { resolveApiUrl } from '@/lib/apiClient';
+import { getAiRuntimeSelection, isAiModelReady } from '@/services/ai';
+import type { WeightInput } from '@/types';
+import { WeightParserResponseSchema } from '@/services/weightImport/aiParserShared';
+import { detectWeightImportHandler, hasNativeWeightImporters } from '@/services/weightImport/formats';
 
 export function canUseAiWeightImport(): boolean {
-  return hasOpenAiClient();
+  return isAiModelReady();
+}
+
+export function canUseWeightImport(): boolean {
+  return hasNativeWeightImporters() || canUseAiWeightImport();
+}
+
+export async function parseWeightFile(fileContent: string): Promise<WeightInput[]> {
+  const normalized = fileContent ?? '';
+  const handler = detectWeightImportHandler(normalized);
+  if (handler) {
+    return handler.parse(normalized);
+  }
+
+  if (!canUseAiWeightImport()) {
+    throw new Error(
+      'No built-in importer matched this file and the AI importer is disabled. Set EXPO_PUBLIC_OPENAI_API_KEY to enable AI parsing.'
+    );
+  }
+
+  return parseWeightFileWithAI(normalized);
 }
 
 export async function parseWeightFileWithAI(fileContent: string): Promise<WeightInput[]> {
-  const aiClient = getOpenAiClient();
-  if (!aiClient) {
-    throw new Error('OpenAI client not configured.');
+  const { providerId, modelId } = getAiRuntimeSelection();
+
+  const response = await fetch(resolveApiUrl('/api/ai/weight-parser'), {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      fileContent,
+      providerId,
+      modelId,
+    }),
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => null);
+    throw new Error(error?.error ?? 'AI parser request failed.');
   }
 
-  const sample = fileContent.split(/\r?\n/).slice(0, 5).join('\n');
-  const prompt = `
-You are a senior data engineer. I will provide the first few lines of a file that contains historical body-weight entries.
-You must infer the structure and return JSON with a plain JavaScript function that can parse the ENTIRE file.
-
-Requirements:
-- Respond ONLY with JSON following this schema:
-{
-  "parser": "function parseWeightLog(fileText) { ... }",
-  "summary": "One sentence describing the detected format"
-}
-- The parser must:
-  * Accept a single string argument \`fileText\`.
-  * Return an array of objects shaped like { weight: number, unit: 'lb' | 'kg', recordedAt: string }.
-  * Handle headers, blank lines, and common date formats. Convert dates to ISO 8601 strings (set time to 09:00:00 local if missing).
-  * Assume "lb" when units are missing.
-  * Use only vanilla JavaScript—no external libraries.
-  * Never access the network or global variables.
-
-Sample input (first ~5 lines only):
-"""
-${sample}
-"""
-`;
-
-  const { object } = await generateObject({
-    model: aiClient(OPENAI_MODEL),
-    temperature: 0,
-    schema: ParserResponseSchema,
-    prompt,
-  });
+  const object = WeightParserResponseSchema.parse(await response.json());
 
   if (!object?.parser) {
     throw new Error('AI response missing parser function.');

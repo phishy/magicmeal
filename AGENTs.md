@@ -4,8 +4,8 @@ _Last updated: 2025-11-27_
 
 ## Snapshot
 - Supabase is now the canonical backend. The latest migration (`supabase/migrations/20251127215904_remote_schema.sql`) provisions `profiles`, `meals`, `weight_entries`, and `blood_pressure_entries` with RLS plus helper triggers.
-- App boot wraps everything in `SessionProvider` and `ThemePreferenceProvider` inside `app/_layout.tsx`, so authenticated navigation + theming are first-class.
-- Food capture flows now lean on Open Food Facts for both text search and barcode lookup, while OpenAI powers voice search and AI-assisted weight imports.
+- App boot wraps everything in `SessionProvider`, `DeveloperSettingsProvider`, and `ThemePreferenceProvider` inside `app/_layout.tsx`, so authenticated navigation + theming + AI toggles are first-class.
+- Food capture flows now lean on Open Food Facts for both text search and barcode lookup, while OpenAI (default) or local Ollama models power voice search and AI-assisted weight imports.
 - Tools → Weight is a full-featured Supabase-backed screen with charts, range filters, DocumentPicker import, and SWR caching. Blood pressure is mid-migration (Supabase version exists alongside the legacy AsyncStorage view).
 - Types live in `types/index.ts`. When adding new models (products, parser payloads, etc.), update that file first and import everywhere else.
 
@@ -19,14 +19,14 @@ _Last updated: 2025-11-27_
 
 ### 2. Food ingestion & lookup
 - `services/openFoodFacts.ts` handles both barcode lookups and paginated search, mapping responses into the shared `FoodItem` type.
-- `app/food-search.tsx` shows the Open Food Facts results, supports pagination, filtering for branded items, meal logging via `createMeal`, and voice search through Whisper (`services/openai.ts` + `transcribeAudioFile`).
+- `app/food-search.tsx` shows the Open Food Facts results, supports pagination, filtering for branded items, meal logging via `createMeal`, and voice search through Whisper. AI-powered search requests now proxy through `app/api/ai/food-search` so OpenAI/Ollama keys stay server-side.
 - `app/barcode-scanner.tsx` now pipes scans directly into Open Food Facts, offering "Add to Log" via `createMeal`.
-- `app/photo-scanner.tsx` still runs a mock analyzer – hook this up to `services/openai` (or another provider) when we’re ready for real inference.
+- `app/photo-scanner.tsx` still runs a mock analyzer – hook this up to `services/ai` (or another provider) when we’re ready for real inference.
 
 ### 3. Weight intelligence & AI imports
 - `app/(tabs)/tools/weight.tsx` renders Supabase-backed history via SWR (`fetchWeightEntries`), grouped weekly summaries, multi-range charts, and deletion via `removeWeightEntry`.
-- Document imports call `services/weightImport.ts`, which uses `generateObject` on `gpt-4o-mini` to synthesize a parser, execute it safely, normalize entries, and then batch insert via `createWeightEntries`.
-- This path depends on `EXPO_PUBLIC_OPENAI_API_KEY`; we gate UI affordances with `canUseAiWeightImport`.
+- Document imports call `services/weightImport.ts`, which reaches `app/api/ai/weight-parser` to synthesize a parser using whichever AI model is selected, executes it safely on-device, normalizes entries, and then batch inserts via `createWeightEntries`.
+- This path depends on the configured provider being available (OpenAI key or local Ollama); UI affordances check `canUseAiWeightImport`.
 - `components/WeightTrendChart.tsx` provides the shared sparkline rendering; styles and theming come from `constants/theme.ts`.
 
 ### 4. Blood pressure parity gap

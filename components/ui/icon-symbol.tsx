@@ -20,6 +20,7 @@ const MAPPING: IconMapping = {
   'paperplane.fill': 'send',
   'chevron.left.forwardslash.chevron.right': 'code',
   'chevron.right': 'chevron-right',
+  'bubble.left.and.text.bubble.right.fill': 'forum',
   gauge: 'speed',
   calendar: 'calendar-today',
   'chart.bar.fill': 'insert-chart',

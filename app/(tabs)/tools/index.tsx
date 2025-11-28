@@ -17,6 +17,14 @@ const toolCards = [
     route: '/tools/blood-pressure',
   },
   {
+    id: 'feed',
+    title: 'Feed',
+    description: 'View and manage your shared posts.',
+    icon: 'bubble.left.and.text.bubble.right.fill',
+    accentKey: 'toolCardFeed',
+    route: '/tools/feed',
+  },
+  {
     id: 'weight',
     title: 'Weight',
     description: 'Track weight changes over time and visualize progress.',

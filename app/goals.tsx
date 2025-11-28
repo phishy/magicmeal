@@ -1,11 +1,15 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import DateTimePicker, { DateTimePickerAndroid, type DateTimePickerEvent } from '@react-native-community/datetimepicker';
+import React, { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Modal,
+  Platform,
   ScrollView,
   StyleSheet,
   TextInput,
   TouchableOpacity,
+  TouchableWithoutFeedback,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -17,6 +21,7 @@ import type { Theme } from '@/constants/theme';
 import { useAppTheme } from '@/providers/ThemePreferenceProvider';
 import { fetchProfileGoals, updateProfileGoals } from '@/services/profileGoals';
 import type { ActivityLevel, ProfileGoals, WeeklyGoalType, WeightUnit } from '@/types';
+import { useRouter } from 'expo-router';
 
 type FormState = {
   startingWeight: string;
@@ -31,13 +36,13 @@ type FormState = {
 
 const weightUnitOptions: WeightUnit[] = ['lb', 'kg'];
 
-const weeklyGoalOptions: Array<{ value: WeeklyGoalType; label: string; helper: string }> = [
+const weeklyGoalOptions: { value: WeeklyGoalType; label: string; helper: string }[] = [
   { value: 'lose', label: 'Lose', helper: 'Aim to lose a set amount per week.' },
   { value: 'maintain', label: 'Maintain', helper: 'Keep things steady for now.' },
   { value: 'gain', label: 'Gain', helper: 'Add mass at a steady pace.' },
 ];
 
-const activityOptions: Array<{ value: ActivityLevel; label: string; helper: string }> = [
+const activityOptions: { value: ActivityLevel; label: string; helper: string }[] = [
   { value: 'not_active', label: 'Not Very Active', helper: 'Little to no exercise most days.' },
   { value: 'lightly_active', label: 'Lightly Active', helper: '1-2 light sessions per week.' },
   { value: 'moderately_active', label: 'Moderately Active', helper: '3-4 workouts or long walks.' },
@@ -58,10 +63,16 @@ const DEFAULT_FORM: FormState = {
 export default function GoalsScreen() {
   const { theme } = useAppTheme();
   const styles = useMemo(() => createStyles(theme), [theme]);
+  const router = useRouter();
   const { data, error, isLoading, mutate } = useSWR<ProfileGoals>('profile-goals', fetchProfileGoals);
   const [formState, setFormState] = useState<FormState>(DEFAULT_FORM);
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
+  const [iosDatePickerVisible, setIosDatePickerVisible] = useState(false);
+  const [iosDateValue, setIosDateValue] = useState<Date>(new Date());
+  const webDateInputRef = useRef<HTMLInputElement | null>(null);
+  const isWeb = Platform.OS === 'web';
+  const todayIso = useMemo(() => formatDateInput(new Date()), []);
 
   useEffect(() => {
     if (data) {
@@ -106,6 +117,80 @@ export default function GoalsScreen() {
 
     return { value: parsed.toISOString(), error: undefined };
   }, []);
+
+  const parseDateString = useCallback((value?: string) => {
+    if (!value) {
+      return undefined;
+    }
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) {
+      return undefined;
+    }
+    return parsed;
+  }, []);
+
+  const handleDateSelection = useCallback(
+    (date: Date) => {
+      handleChange({ startingWeightDate: formatDateInput(date) });
+    },
+    [handleChange]
+  );
+
+  const openDatePicker = useCallback(() => {
+    const initial = parseDateString(formState.startingWeightDate) ?? new Date();
+    if (isWeb) {
+      const formatted = formatDateInput(initial);
+      if (webDateInputRef.current) {
+        webDateInputRef.current.value = formatted;
+        if (typeof webDateInputRef.current.showPicker === 'function') {
+          webDateInputRef.current.showPicker();
+        } else {
+          webDateInputRef.current.focus();
+        }
+      }
+      return;
+    }
+
+    if (Platform.OS === 'android') {
+      const onChange = (_event: DateTimePickerEvent, selected?: Date) => {
+        if (selected) {
+          handleDateSelection(selected);
+        }
+      };
+
+      DateTimePickerAndroid.open({
+        value: initial,
+        mode: 'date',
+        is24Hour: true,
+        maximumDate: new Date(),
+        onChange,
+      });
+      return;
+    }
+
+    setIosDateValue(initial);
+    setIosDatePickerVisible(true);
+  }, [formState.startingWeightDate, handleDateSelection, isWeb, parseDateString]);
+
+  const closeIosPicker = useCallback(() => {
+    setIosDatePickerVisible(false);
+  }, []);
+
+  const confirmIosPicker = useCallback(() => {
+    handleDateSelection(iosDateValue);
+    closeIosPicker();
+  }, [closeIosPicker, handleDateSelection, iosDateValue]);
+
+  const clearDate = useCallback(() => {
+    handleChange({ startingWeightDate: '' });
+  }, [handleChange]);
+
+  const handleWebDateChange = useCallback(
+    (event: ChangeEvent<HTMLInputElement>) => {
+      handleChange({ startingWeightDate: event.target.value });
+    },
+    [handleChange]
+  );
 
   const handleSave = useCallback(async () => {
     const startingWeightResult = parseNumberField(formState.startingWeight, 'Starting weight');
@@ -156,7 +241,7 @@ export default function GoalsScreen() {
         ...mapGoalsToForm(updated),
       }));
       setDirty(false);
-      Alert.alert('Goals updated', 'Your targets were saved successfully.');
+      router.replace('/you');
     } catch (saveError: any) {
       console.error('Failed to save goals', saveError);
       Alert.alert('Save failed', saveError?.message ?? 'We could not update your goals. Try again.');
@@ -255,16 +340,33 @@ export default function GoalsScreen() {
           </View>
           <View style={styles.fieldGroup}>
             <ThemedText style={styles.inputLabel}>Date recorded</ThemedText>
-            <TextInput
-              style={styles.textInput}
-              value={formState.startingWeightDate}
-              onChangeText={(text) => handleChange({ startingWeightDate: text })}
-              placeholder="2025-10-22"
-              inputMode="numeric"
-              placeholderTextColor={theme.textTertiary}
-              autoCapitalize="none"
-            />
-            <ThemedText style={styles.helperText}>Format: YYYY-MM-DD</ThemedText>
+            <View style={styles.dateRow}>
+              <TouchableOpacity style={styles.dateButton} onPress={openDatePicker}>
+                <ThemedText
+                  style={[
+                    styles.dateButtonLabel,
+                    !formState.startingWeightDate && styles.dateButtonPlaceholder,
+                  ]}
+                >
+                  {formState.startingWeightDate || 'Select date'}
+                </ThemedText>
+              </TouchableOpacity>
+              {formState.startingWeightDate ? (
+                <TouchableOpacity style={styles.clearDateButton} onPress={clearDate}>
+                  <ThemedText style={styles.clearDateText}>Clear</ThemedText>
+                </TouchableOpacity>
+              ) : null}
+            </View>
+            {isWeb &&
+              React.createElement('input', {
+                type: 'date',
+                max: todayIso,
+                ref: webDateInputRef,
+                value: formState.startingWeightDate || '',
+                onChange: handleWebDateChange,
+                style: WEB_DATE_INPUT_STYLE,
+              })}
+            <ThemedText style={styles.helperText}>Use the day you logged your starting weight.</ThemedText>
           </View>
         </ThemedView>
 
@@ -384,6 +486,35 @@ export default function GoalsScreen() {
           <ThemedText style={styles.saveButtonLabel}>{saving ? 'Saving…' : 'Save Goals'}</ThemedText>
         </TouchableOpacity>
       </View>
+
+      <Modal transparent visible={iosDatePickerVisible} animationType="fade" onRequestClose={closeIosPicker}>
+        <TouchableWithoutFeedback onPress={closeIosPicker}>
+          <View style={[styles.pickerBackdrop]} />
+        </TouchableWithoutFeedback>
+        <View style={styles.pickerSheet}>
+          <ThemedText style={styles.pickerTitle}>Select date</ThemedText>
+          <DateTimePicker
+            value={iosDateValue}
+            mode="date"
+            display="spinner"
+            onChange={(_event, date) => {
+              if (date) {
+                setIosDateValue(date);
+              }
+            }}
+            maximumDate={new Date()}
+            style={styles.iosPicker}
+          />
+          <View style={styles.pickerActions}>
+            <TouchableOpacity style={styles.pickerActionButton} onPress={closeIosPicker}>
+              <ThemedText style={styles.pickerActionText}>Cancel</ThemedText>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.pickerActionButton} onPress={confirmIosPicker}>
+              <ThemedText style={styles.pickerActionTextPrimary}>Set Date</ThemedText>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -399,12 +530,22 @@ const mapGoalsToForm = (goals: ProfileGoals): FormState => ({
   activityLevel: goals.activityLevel ?? 'not_active',
 });
 
-const formatDateInput = (value: string) => {
-  const date = new Date(value);
+const formatDateInput = (value: string | Date) => {
+  const date = typeof value === 'string' ? new Date(value) : value;
   if (Number.isNaN(date.getTime())) {
     return '';
   }
   return date.toISOString().slice(0, 10);
+};
+
+const WEB_DATE_INPUT_STYLE: React.CSSProperties = {
+  position: 'absolute',
+  opacity: 0,
+  pointerEvents: 'none',
+  width: 0,
+  height: 0,
+  border: 'none',
+  padding: 0,
 };
 
 const createStyles = (theme: Theme) =>
@@ -449,6 +590,83 @@ const createStyles = (theme: Theme) =>
     helperText: {
       color: theme.textTertiary,
       fontSize: 12,
+    },
+    dateRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+    },
+    dateButton: {
+      flex: 1,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: theme.border,
+      paddingVertical: 12,
+      paddingHorizontal: 14,
+      backgroundColor: theme.cardElevated,
+    },
+    dateButtonLabel: {
+      fontSize: 15,
+      fontWeight: '600',
+      color: theme.text,
+    },
+    dateButtonPlaceholder: {
+      color: theme.textTertiary,
+      fontWeight: '400',
+    },
+    clearDateButton: {
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+      borderRadius: 10,
+      borderWidth: 1,
+      borderColor: theme.border,
+      backgroundColor: theme.cardElevated,
+    },
+    clearDateText: {
+      color: theme.textSecondary,
+      fontWeight: '600',
+    },
+    pickerBackdrop: {
+      ...StyleSheet.absoluteFillObject,
+      backgroundColor: theme.modalBackdrop,
+    },
+    pickerSheet: {
+      position: 'absolute',
+      left: 20,
+      right: 20,
+      bottom: 40,
+      borderRadius: 24,
+      padding: 20,
+      gap: 12,
+      backgroundColor: theme.card,
+      borderWidth: 1,
+      borderColor: theme.border,
+    },
+    pickerTitle: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: theme.text,
+    },
+    iosPicker: {
+      backgroundColor: theme.card,
+    },
+    pickerActions: {
+      flexDirection: 'row',
+      justifyContent: 'flex-end',
+      gap: 12,
+      marginTop: 8,
+    },
+    pickerActionButton: {
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+    },
+    pickerActionText: {
+      color: theme.textSecondary,
+      fontWeight: '600',
+    },
+    pickerActionTextPrimary: {
+      color: theme.primary,
+      fontWeight: '700',
     },
     textInput: {
       borderWidth: 1,

@@ -38,7 +38,13 @@ function RootNavigation() {
         </ThemedView>
       ) : session ? (
         <>
-          <Stack>
+          <Stack
+            screenOptions={{
+              headerBackTitleVisible: false,
+              headerBackTitle: '',
+              headerBackButtonDisplayMode: 'minimal',
+            }}
+          >
             <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
             <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
             <Stack.Screen name="tools/blood-pressure" options={{ title: 'Blood Pressure' }} />

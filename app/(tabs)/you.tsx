@@ -62,11 +62,6 @@ export default function YouScreen() {
           </View>
         </View>
 
-        <TouchableOpacity style={styles.menuButton} onPress={() => router.push('/tools')}>
-          <IconSymbol name="wrench.and.screwdriver" size={20} color={theme.primary} />
-          <ThemedText style={styles.menuButtonText}>Go to Tools</ThemedText>
-        </TouchableOpacity>
-
         <TouchableOpacity style={styles.menuButton} onPress={() => router.push('/goals')}>
           <IconSymbol name="flag.fill" size={20} color={theme.secondary} />
           <View style={styles.menuButtonContent}>

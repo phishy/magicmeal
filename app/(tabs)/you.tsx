@@ -1,9 +1,9 @@
+import { Image } from 'expo-image';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  Image,
   Modal,
   Platform,
   RefreshControl,
@@ -24,6 +24,7 @@ import { useAppTheme } from '@/providers/ThemePreferenceProvider';
 import { signOut } from '@/services/auth';
 import { fetchMyPosts } from '@/services/posts';
 import type { PostWithMedia } from '@/types';
+import { PostMediaViewer } from '../../components/PostMediaViewer';
 
 export default function YouScreen() {
   const { theme, themeName, setThemeName } = useAppTheme();
@@ -35,6 +36,9 @@ export default function YouScreen() {
   const [postsLoading, setPostsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [postsError, setPostsError] = useState<string | null>(null);
+  const [viewerVisible, setViewerVisible] = useState(false);
+  const [viewerImages, setViewerImages] = useState<{ uri: string }[]>([]);
+  const [viewerIndex, setViewerIndex] = useState(0);
 
   const executeSignOut = async () => {
     try {
@@ -99,6 +103,18 @@ export default function YouScreen() {
   const handleCreatePost = () => {
     router.push('/post/create');
   };
+
+  const openMediaViewer = useCallback((post: PostWithMedia, index: number) => {
+    const images = post.media
+      .map((media) => media.publicUrl ?? media.storagePath)
+      .filter(Boolean)
+      .map((uri) => ({ uri }));
+
+    if (!images.length) return;
+    setViewerImages(images);
+    setViewerIndex(index);
+    setViewerVisible(true);
+  }, []);
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
@@ -175,11 +191,19 @@ export default function YouScreen() {
                 Share something from the plus button to see it here.
               </ThemedText>
             ) : (
-              posts.map((post) => <PostCard key={post.id} post={post} theme={theme} />)
+              posts.map((post) => (
+                <PostCard key={post.id} post={post} theme={theme} onMediaPress={openMediaViewer} />
+              ))
             )}
           </View>
         </ThemedView>
       </ScrollView>
+      <PostMediaViewer
+        visible={viewerVisible}
+        images={viewerImages}
+        initialIndex={viewerIndex}
+        onClose={() => setViewerVisible(false)}
+      />
 
       <Modal transparent visible={themePickerVisible} animationType="fade" onRequestClose={() => setThemePickerVisible(false)}>
         <TouchableWithoutFeedback onPress={() => setThemePickerVisible(false)}>
@@ -232,7 +256,15 @@ export default function YouScreen() {
 
 const themeOptions = Object.entries(ThemeCatalog) as [ThemeName, (typeof ThemeCatalog)[ThemeName]][];
 
-const PostCard = ({ post, theme }: { post: PostWithMedia; theme: Theme }) => {
+const PostCard = ({
+  post,
+  theme,
+  onMediaPress,
+}: {
+  post: PostWithMedia;
+  theme: Theme;
+  onMediaPress: (post: PostWithMedia, index: number) => void;
+}) => {
   const locationText = formatPostLocation(post);
   return (
     <View style={[stylesPostCard.card, { backgroundColor: theme.card }]}>
@@ -253,16 +285,22 @@ const PostCard = ({ post, theme }: { post: PostWithMedia; theme: Theme }) => {
       {post.body ? <ThemedText style={stylesPostCard.bodyText}>{post.body}</ThemedText> : null}
       {post.media.length ? (
         <View style={stylesPostCard.mediaGrid}>
-          {post.media.map((media) => (
-            <Image
+          {post.media.map((media, index) => (
+            <TouchableOpacity
               key={media.id}
-              source={{ uri: media.publicUrl ?? media.storagePath }}
+              activeOpacity={0.9}
+              onPress={() => onMediaPress(post, index)}
               style={[
-                stylesPostCard.mediaImage,
-                post.media.length === 1 && stylesPostCard.mediaImageSingle,
+                stylesPostCard.mediaWrapper,
+                post.media.length === 1 && stylesPostCard.mediaWrapperSingle,
               ]}
-              accessibilityIgnoresInvertColors
-            />
+            >
+              <Image
+                source={{ uri: media.publicUrl ?? media.storagePath }}
+                style={stylesPostCard.mediaImage}
+                contentFit="cover"
+              />
+            </TouchableOpacity>
           ))}
         </View>
       ) : null}
@@ -493,13 +531,18 @@ const stylesPostCard = StyleSheet.create({
     flexWrap: 'wrap',
     gap: 8,
   },
-  mediaImage: {
+  mediaWrapper: {
     width: '48%',
     aspectRatio: 1,
     borderRadius: 12,
+    overflow: 'hidden',
   },
-  mediaImageSingle: {
+  mediaWrapperSingle: {
     width: '100%',
+  },
+  mediaImage: {
+    width: '100%',
+    height: '100%',
   },
   locationRow: {
     flexDirection: 'row',

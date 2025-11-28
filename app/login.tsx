@@ -37,6 +37,7 @@ const hexToRgba = (value: string, alpha = 1) => {
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const passwordRef = useRef<TextInput>(null);
   const [mode, setMode] = useState<AuthMode>('signin');
   const [loading, setLoading] = useState(false);
   const [feedback, setFeedback] = useState<AuthFeedback | null>(null);
@@ -121,6 +122,8 @@ export default function LoginScreen() {
                 style={styles.input}
                 autoCapitalize="none"
                 keyboardType="email-address"
+                returnKeyType="next"
+                onSubmitEditing={() => passwordRef.current?.focus?.()}
                 value={email}
                 onChangeText={setEmail}
                 placeholder="you@example.com"
@@ -133,6 +136,9 @@ export default function LoginScreen() {
               <TextInput
                 style={styles.input}
                 secureTextEntry
+                ref={passwordRef}
+                returnKeyType="done"
+                onSubmitEditing={handleSubmit}
                 value={password}
                 onChangeText={setPassword}
                 placeholder="••••••••"

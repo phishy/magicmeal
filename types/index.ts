@@ -2,6 +2,20 @@ import type { NativeStackNavigationOptions } from '@react-navigation/native-stac
 import type { ReactNode } from 'react';
 import type { StyleProp, ViewStyle } from 'react-native';
 
+export type AuthMode = 'signin' | 'signup';
+
+export type AuthFeedbackTone = 'info' | 'error';
+
+export interface AuthFeedback {
+  tone: AuthFeedbackTone;
+  message: string;
+}
+
+export interface GeoPoint {
+  latitude: number;
+  longitude: number;
+}
+
 export type MealType = 'breakfast' | 'lunch' | 'dinner' | 'snack';
 
 export interface MealEntry {
@@ -114,6 +128,68 @@ export interface WeightEntryRecord {
   unit: WeightUnit;
   recorded_at: string;
   created_at: string;
+}
+
+export interface Post {
+  id: string;
+  profileId: string;
+  body?: string;
+  mediaCount: number;
+  createdAt: string;
+  updatedAt: string;
+  locationName?: string;
+  locationLatitude?: number;
+  locationLongitude?: number;
+}
+
+export interface PostRecord {
+  id: string;
+  profile_id: string;
+  body: string | null;
+  media_count: number;
+  created_at: string;
+  updated_at: string;
+  location_name: string | null;
+  location_latitude: number | string | null;
+  location_longitude: number | string | null;
+}
+
+export interface PostMedia {
+  id: string;
+  postId: string;
+  storagePath: string;
+  mimeType?: string;
+  width?: number;
+  height?: number;
+  sortOrder: number;
+  createdAt: string;
+  publicUrl?: string;
+}
+
+export interface PostMediaRecord {
+  id: string;
+  post_id: string;
+  storage_path: string;
+  mime_type: string | null;
+  width: number | null;
+  height: number | null;
+  sort_order: number;
+  created_at: string;
+}
+
+export interface PostWithMedia extends Post {
+  media: PostMedia[];
+}
+
+export interface PostLocationInput extends GeoPoint {
+  name?: string | null;
+}
+
+export type TrendRangePreset = '1w' | '1m' | '3m' | '1y' | 'all' | 'custom';
+
+export interface DateRange {
+  start?: string;
+  end?: string;
 }
 
 export interface WeightTrendChartProps {

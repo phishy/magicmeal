@@ -60,22 +60,26 @@ export default function TabLayout() {
           name="dashboard"
           options={{
             title: 'Dashboard',
-            tabBarIcon: ({ color }) => <IconSymbol size={28} name="gauge" color={color} />,
+            tabBarIcon: ({ color, size }) => (
+              <IconSymbol size={size ?? 24} name="gauge" color={color} />
+            ),
           }}
         />
         <Tabs.Screen
           name="index"
           options={{
             title: 'Today',
-            tabBarIcon: ({ color }) => <IconSymbol size={28} name="calendar" color={color} />,
+            tabBarIcon: ({ color, size }) => (
+              <IconSymbol size={size ?? 24} name="calendar" color={color} />
+            ),
           }}
         />
         <Tabs.Screen
           name="tools"
           options={{
             title: 'Tools',
-            tabBarIcon: ({ color }) => (
-              <IconSymbol size={28} name="wrench.and.screwdriver" color={color} />
+            tabBarIcon: ({ color, size }) => (
+              <IconSymbol size={size ?? 24} name="wrench.and.screwdriver" color={color} />
             ),
           }}
         />
@@ -83,7 +87,9 @@ export default function TabLayout() {
           name="you"
           options={{
             title: 'You',
-            tabBarIcon: ({ color }) => <IconSymbol size={28} name="person.crop.circle" color={color} />,
+            tabBarIcon: ({ color, size }) => (
+              <IconSymbol size={size ?? 24} name="person.crop.circle" color={color} />
+            ),
           }}
         />
       </Tabs>
@@ -127,17 +133,17 @@ const CustomTabBar = ({ state, descriptors, navigation, onOpenSheet }: CustomTab
           flex: 1,
           alignItems: 'center',
           justifyContent: 'center',
-          gap: 4,
+          gap: 2,
         },
         tabLabel: {
-          fontSize: 13,
+          fontSize: 12,
         },
         plusWrapper: {
-          width: 64,
-          height: 64,
-          borderRadius: 32,
+          width: 48,
+          height: 48,
+          borderRadius: 24,
           backgroundColor: theme.primary,
-          paddingTop: 12,
+          paddingTop: 8,
           alignItems: 'center',
           justifyContent: 'center',
           shadowColor: theme.primary,
@@ -147,9 +153,9 @@ const CustomTabBar = ({ state, descriptors, navigation, onOpenSheet }: CustomTab
           elevation: 16,
         },
         plusText: {
-          fontSize: 32,
+          fontSize: 24,
           color: theme.onPrimary,
-          marginTop: -4,
+          marginTop: -1,
         },
         row: {
           flexDirection: 'row',
@@ -178,7 +184,7 @@ const CustomTabBar = ({ state, descriptors, navigation, onOpenSheet }: CustomTab
           options.tabBarIcon?.({
             focused: isFocused,
             color,
-            size: 26,
+            size: 24,
           }) ?? null;
 
         const onPress = () => {
@@ -236,6 +242,13 @@ type IconName = ComponentProps<typeof IconSymbol>['name'];
 
 const quickActions = [
   {
+    key: 'post',
+    label: 'Post Update',
+    icon: 'square.and.pencil',
+    colorKey: 'primary',
+    route: '/post/create',
+  },
+  {
     key: 'log-food',
     label: 'Log Food',
     icon: 'magnifyingglass',
@@ -262,19 +275,19 @@ const quickActions = [
     colorKey: 'quickActionMeal',
     route: '/photo-scanner',
   },
-] satisfies ReadonlyArray<{
+] satisfies readonly {
   key: string;
   label: string;
   icon: IconName;
   colorKey: keyof Theme;
   route?: string;
-}>;
+}[];
 
 const trackerActions = [
   { key: 'water', label: 'Water', icon: 'drop.fill' },
   { key: 'weight', label: 'Weight', icon: 'scalemass.fill' },
   { key: 'exercise', label: 'Exercise', icon: 'flame.fill' },
-] satisfies ReadonlyArray<{ key: string; label: string; icon: IconName; route?: string }>;
+] satisfies readonly { key: string; label: string; icon: IconName; route?: string }[];
 
 const PlusActionSheet = ({ visible, onClose, onSelectWeight }: PlusSheetProps) => {
   const insets = useSafeAreaInsets();

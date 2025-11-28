@@ -39,3 +39,5 @@ export const sentryConfig: SentryRuntimeConfig = {
 
 export const shouldInitSentry = Boolean(sentryConfig.dsn);
 
+export const mapboxToken = process.env.EXPO_PUBLIC_MAPBOX_TOKEN || undefined;
+

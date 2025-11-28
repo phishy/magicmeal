@@ -23,10 +23,11 @@ import { ThemedView } from '@/components/themed-view';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import WeightTrendChart from '@/components/WeightTrendChart';
 import type { Theme } from '@/constants/theme';
+import { filterEntriesByRange, getTrendRangeLabel, getTrendRangeSubtitle, TREND_RANGE_PRESETS } from '@/lib/trendRange';
 import { useAppTheme } from '@/providers/ThemePreferenceProvider';
 import { createWeightEntries, fetchWeightEntries, removeWeightEntry } from '@/services/weight';
 import { canUseAiWeightImport, parseWeightFileWithAI, readWeightImportFile } from '@/services/weightImport';
-import type { WeightEntry } from '@/types';
+import type { DateRange, TrendRangePreset, WeightEntry } from '@/types';
 
 const CHART_HEIGHT = 160;
 type DocumentResult = Awaited<ReturnType<typeof DocumentPicker.getDocumentAsync>>;
@@ -38,8 +39,8 @@ export default function WeightTool() {
 
   const [importing, setImporting] = useState(false);
   const [pickerAvailable, setPickerAvailable] = useState(true);
-  const [chartRange, setChartRange] = useState<'1w' | '1m' | '3m' | '1y' | 'all' | 'custom'>('1m');
-  const [customRange, setCustomRange] = useState<{ start: string; end: string } | null>(null);
+  const [chartRange, setChartRange] = useState<TrendRangePreset>('1m');
+  const [customRange, setCustomRange] = useState<DateRange | null>(null);
   const [pickerConfig, setPickerConfig] = useState<{
     field: 'start' | 'end';
     value: Date;
@@ -97,28 +98,10 @@ export default function WeightTool() {
     }, [mutate])
   );
 
-  const chartEntries = useMemo(() => {
-    if (!sortedEntries.length) return [];
-
-    if (chartRange === 'all') {
-      return [...sortedEntries].reverse();
-    }
-
-    if (chartRange === 'custom' && customRange?.start && customRange?.end) {
-      const startTime = new Date(customRange.start).getTime();
-      const endTime = new Date(customRange.end).getTime();
-      return sortedEntries
-        .filter((entry) => {
-          const ts = new Date(entry.recordedAt).getTime();
-          return ts >= startTime && ts <= endTime;
-        })
-        .reverse();
-    }
-
-    const lookbackDays = chartRange === '1w' ? 7 : chartRange === '1m' ? 30 : chartRange === '3m' ? 90 : 365;
-    const cutoff = Date.now() - lookbackDays * 24 * 60 * 60 * 1000;
-    return sortedEntries.filter((entry) => new Date(entry.recordedAt).getTime() >= cutoff).reverse();
-  }, [sortedEntries, chartRange, customRange]);
+  const chartEntries = useMemo(
+    () => filterEntriesByRange(sortedEntries, chartRange, customRange),
+    [sortedEntries, chartRange, customRange]
+  );
 
   const netChange = useMemo(() => {
     if (chartEntries.length < 2) return 0;
@@ -247,7 +230,7 @@ export default function WeightTool() {
         <View style={styles.chartHeaderRow}>
             <View>
               <ThemedText style={styles.chartTitle}>Weight</ThemedText>
-              <ThemedText style={styles.chartSubtitle}>{getRangeSubtitle(chartRange)}</ThemedText>
+              <ThemedText style={styles.chartSubtitle}>{getTrendRangeSubtitle(chartRange)}</ThemedText>
             </View>
             <View style={styles.netChangePill}>
               <ThemedText style={styles.netChangeLabel}>Change</ThemedText>
@@ -264,7 +247,7 @@ export default function WeightTool() {
             topContent={
               <>
                 <View style={styles.rangeSelector}>
-                  {(['1w', '1m', '3m', '1y', 'all', 'custom'] as const).map((range) => (
+                  {TREND_RANGE_PRESETS.map((range) => (
                     <TouchableOpacity
                       key={range}
                       style={[
@@ -279,17 +262,7 @@ export default function WeightTool() {
                           chartRange === range && styles.rangeTabLabelActive,
                         ]}
                       >
-                        {range === '1w'
-                          ? '1W'
-                          : range === '1m'
-                          ? '1M'
-                          : range === '3m'
-                          ? '3M'
-                          : range === '1y'
-                          ? '1Y'
-                          : range === 'all'
-                          ? 'All'
-                          : 'Custom'}
+                        {getTrendRangeLabel(range)}
                       </ThemedText>
                     </TouchableOpacity>
                   ))}
@@ -781,25 +754,6 @@ function formatWeekRange(weekStart: Date) {
   const endLabel = sameMonth ? dayFormatter.format(weekEnd) : monthDayFormatter.format(weekEnd);
 
   return `${startLabel} – ${endLabel}`;
-}
-
-function getRangeSubtitle(range: '1w' | '1m' | '3m' | '1y' | 'all' | 'custom') {
-  switch (range) {
-    case '1w':
-      return 'Last 7 days';
-    case '1m':
-      return 'Last 30 days';
-    case '3m':
-      return 'Last 90 days';
-    case '1y':
-      return 'Last 365 days';
-    case 'all':
-      return 'All entries';
-    case 'custom':
-      return 'Custom range';
-    default:
-      return '';
-  }
 }
 
 function formatNetChange(delta: number) {

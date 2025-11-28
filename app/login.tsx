@@ -1,6 +1,5 @@
-import { useState } from 'react';
-import type { ColorValue } from 'react-native';
-import { Alert, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Animated, Easing, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Ionicons } from '@expo/vector-icons';
@@ -13,6 +12,7 @@ import type { Theme } from '@/constants/theme';
 import { useSession } from '@/providers/SessionProvider';
 import { useAppTheme } from '@/providers/ThemePreferenceProvider';
 import { signInWithEmail, signUpWithEmail } from '@/services/auth';
+import type { AuthFeedback, AuthMode } from '@/types';
 
 const hexToRgba = (value: string, alpha = 1) => {
   if (!value) {
@@ -37,40 +37,25 @@ const hexToRgba = (value: string, alpha = 1) => {
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [mode, setMode] = useState<'signin' | 'signup'>('signin');
+  const [mode, setMode] = useState<AuthMode>('signin');
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [feedback, setFeedback] = useState<AuthFeedback | null>(null);
   const { theme } = useAppTheme();
   const styles = createStyles(theme);
   const { session } = useSession();
-  const gradientColors: [ColorValue, ColorValue, ...ColorValue[]] = [
-    theme.backgroundSecondary,
-    hexToRgba(theme.primary, 0.25),
-    hexToRgba(theme.secondary, 0.18),
-  ];
-  const accentGlows = {
-    primary: hexToRgba(theme.primary, 0.25),
-    secondary: hexToRgba(theme.secondary, 0.2),
-  };
-  const featurePills = [
-    { icon: 'star-outline' as const, label: 'AI macro coach' },
-    { icon: 'leaf-outline' as const, label: 'Mindful recipes' },
-    { icon: 'flash-outline' as const, label: '1-tap logging' },
-  ];
-  const heroHighlights = [
-    { label: 'Consistency score', value: '92', meta: 'Today’s magic' },
-    { label: 'Meals logged', value: '1.2M+', meta: 'Community total' },
-  ];
 
   if (session) {
     return <Redirect href="/dashboard" />;
   }
 
   const handleSubmit = async () => {
-    setError(null);
+    setFeedback(null);
 
     if (!email || !password) {
-      setError('Please enter your email and password.');
+      setFeedback({
+        tone: 'error',
+        message: 'Please enter your email and password to continue.',
+      });
       return;
     }
 
@@ -80,10 +65,17 @@ export default function LoginScreen() {
         await signInWithEmail(email, password);
       } else {
         await signUpWithEmail(email, password);
-        Alert.alert('Check your email', 'Confirm your account before signing in.');
+        setMode('signin');
+        setFeedback({
+          tone: 'info',
+          message: 'Almost there! We just sent a verification email—confirm it to activate your account.',
+        });
       }
     } catch (error: any) {
-      setError(error.message ?? 'An error occurred. Please try again.');
+      setFeedback({
+        tone: 'error',
+        message: error.message ?? 'Something went wrong. Please try again.',
+      });
     } finally {
       setLoading(false);
     }
@@ -91,9 +83,7 @@ export default function LoginScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
-      <LinearGradient colors={gradientColors} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.backgroundGradient} />
-      <View pointerEvents="none" style={[styles.glow, styles.glowPrimary, { backgroundColor: accentGlows.primary }]} />
-      <View pointerEvents="none" style={[styles.glow, styles.glowSecondary, { backgroundColor: accentGlows.secondary }]} />
+      <AnimatedBackground theme={theme} />
       <ThemedView style={styles.container}>
         <View style={styles.card}>
           <View style={styles.header}>
@@ -105,32 +95,23 @@ export default function LoginScreen() {
               Welcome to MagicMeal
             </ThemedText>
             <ThemedText style={styles.subtitle}>
-              {mode === 'signin' ? 'Sign back in to keep your streak glowing.' : 'Craft your plan with an enchanted nutrition profile.'}
+              {mode === 'signin' ? 'Sign in to pick up where you left off.' : 'Create an account to start your plan.'}
             </ThemedText>
-            <View style={styles.featureRow}>
-              {featurePills.map((pill) => (
-                <View key={pill.label} style={styles.featurePill}>
-                  <Ionicons name={pill.icon} size={16} color={theme.primary} />
-                  <ThemedText style={styles.featurePillText}>{pill.label}</ThemedText>
-                </View>
-              ))}
-            </View>
-          </View>
-
-          <View style={styles.heroHighlights}>
-            {heroHighlights.map((highlight) => (
-              <View key={highlight.label} style={styles.highlightCard}>
-                <ThemedText style={styles.highlightLabel}>{highlight.label}</ThemedText>
-                <ThemedText style={styles.highlightValue}>{highlight.value}</ThemedText>
-                <ThemedText style={styles.highlightMeta}>{highlight.meta}</ThemedText>
-              </View>
-            ))}
           </View>
 
           <View style={styles.form}>
-            {error && (
-              <View style={styles.errorContainer}>
-                <ThemedText style={styles.errorText}>{error}</ThemedText>
+            {feedback && (
+              <View
+                style={[
+                  styles.feedbackContainer,
+                  feedback.tone === 'error' ? styles.feedbackError : styles.feedbackInfo,
+                ]}
+              >
+                <ThemedText
+                  style={feedback.tone === 'error' ? styles.feedbackTextError : styles.feedbackTextInfo}
+                >
+                  {feedback.message}
+                </ThemedText>
               </View>
             )}
 
@@ -169,7 +150,7 @@ export default function LoginScreen() {
               style={styles.secondaryButton}
               onPress={() => {
                 setMode(mode === 'signin' ? 'signup' : 'signin');
-                setError(null);
+                setFeedback(null);
               }}
               disabled={loading}
             >
@@ -184,28 +165,214 @@ export default function LoginScreen() {
   );
 }
 
+type OrbPreset = {
+  size: number;
+  opacity: number;
+  position: Partial<Record<'top' | 'bottom' | 'left' | 'right', number>>;
+  drift: { x: number; y: number };
+};
+
+const ORB_PRESETS: OrbPreset[] = [
+  {
+    size: 320,
+    opacity: 0.28,
+    position: { top: -160, left: -120 },
+    drift: { x: 22, y: 26 },
+  },
+  {
+    size: 240,
+    opacity: 0.22,
+    position: { top: -60, right: -80 },
+    drift: { x: 18, y: 20 },
+  },
+  {
+    size: 200,
+    opacity: 0.2,
+    position: { bottom: 20, left: -60 },
+    drift: { x: 16, y: 18 },
+  },
+  {
+    size: 160,
+    opacity: 0.18,
+    position: { bottom: -40, right: -10 },
+    drift: { x: 24, y: 16 },
+  },
+];
+
+const AnimatedBackground = ({ theme }: { theme: Theme }) => {
+  const orbAnimations = useRef(ORB_PRESETS.map(() => new Animated.Value(0))).current;
+  const waveAnimation = useRef(new Animated.Value(0)).current;
+  const pulseAnimation = useRef(new Animated.Value(0)).current;
+
+  const orbConfigs = useMemo(
+    () =>
+      ORB_PRESETS.map((preset, index) => ({
+        ...preset,
+        color: hexToRgba(index % 2 === 0 ? theme.primary : theme.secondary, preset.opacity),
+      })),
+    [theme.primary, theme.secondary],
+  );
+
+  useEffect(() => {
+    const timers: ReturnType<typeof setTimeout>[] = [];
+    const loops = orbAnimations.map((animation, index) => {
+      const loop = Animated.loop(
+        Animated.sequence([
+          Animated.timing(animation, {
+            toValue: 1,
+            duration: 7000 + index * 1200,
+            easing: Easing.inOut(Easing.quad),
+            useNativeDriver: true,
+          }),
+          Animated.timing(animation, {
+            toValue: 0,
+            duration: 7000 + index * 1200,
+            easing: Easing.inOut(Easing.quad),
+            useNativeDriver: true,
+          }),
+        ]),
+      );
+
+      timers.push(
+        setTimeout(() => {
+          loop.start();
+        }, index * 350),
+      );
+
+      return loop;
+    });
+
+    const waveLoop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(waveAnimation, {
+          toValue: 1,
+          duration: 9000,
+          easing: Easing.inOut(Easing.quad),
+          useNativeDriver: true,
+        }),
+        Animated.timing(waveAnimation, {
+          toValue: 0,
+          duration: 9000,
+          easing: Easing.inOut(Easing.quad),
+          useNativeDriver: true,
+        }),
+      ]),
+    );
+    const pulseLoop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnimation, {
+          toValue: 1,
+          duration: 8000,
+          easing: Easing.inOut(Easing.quad),
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulseAnimation, {
+          toValue: 0,
+          duration: 8000,
+          easing: Easing.inOut(Easing.quad),
+          useNativeDriver: true,
+        }),
+      ]),
+    );
+
+    waveLoop.start();
+    pulseLoop.start();
+
+    return () => {
+      loops.forEach((loop) => loop.stop());
+      waveLoop.stop();
+      pulseLoop.stop();
+      timers.forEach((timer) => clearTimeout(timer));
+    };
+  }, [orbAnimations, waveAnimation, pulseAnimation]);
+
+  const waveTranslateX = waveAnimation.interpolate({
+    inputRange: [0, 1],
+    outputRange: [-40, 40],
+  });
+  const waveTranslateY = waveAnimation.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, -24],
+  });
+  const waveOpacity = waveAnimation.interpolate({
+    inputRange: [0, 0.5, 1],
+    outputRange: [0.18, 0.35, 0.18],
+  });
+  const pulseOpacity = pulseAnimation.interpolate({
+    inputRange: [0, 0.5, 1],
+    outputRange: [0.05, 0.12, 0.05],
+  });
+
+  return (
+    <View pointerEvents="none" style={backgroundStyles.container}>
+      <LinearGradient
+        colors={[hexToRgba(theme.backgroundSecondary, 0.9), hexToRgba(theme.background, 1)]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={backgroundStyles.backgroundGradient}
+      />
+      <LinearGradient
+        colors={[hexToRgba(theme.primary, 0.15), hexToRgba(theme.secondary, 0.12), 'transparent']}
+        start={{ x: 0.1, y: 0 }}
+        end={{ x: 0.9, y: 1 }}
+        style={backgroundStyles.overlayGradient}
+      />
+
+      {orbConfigs.map((orb, index) => {
+        const translateX = orbAnimations[index].interpolate({
+          inputRange: [0, 1],
+          outputRange: [-orb.drift.x, orb.drift.x],
+        });
+        const translateY = orbAnimations[index].interpolate({
+          inputRange: [0, 1],
+          outputRange: [orb.drift.y, -orb.drift.y],
+        });
+
+        return (
+          <Animated.View
+            key={`orb-${orb.size}-${index}`}
+            style={[
+              backgroundStyles.orb,
+              orb.position,
+              {
+                width: orb.size,
+                height: orb.size,
+                borderRadius: orb.size / 2,
+                backgroundColor: orb.color,
+                transform: [{ translateX }, { translateY }],
+              },
+            ]}
+          />
+        );
+      })}
+
+      <Animated.View
+        style={[
+          backgroundStyles.waveLayer,
+          {
+            backgroundColor: hexToRgba(theme.secondary, 0.18),
+            opacity: waveOpacity,
+            transform: [{ translateX: waveTranslateX }, { translateY: waveTranslateY }],
+          },
+        ]}
+      />
+
+      <Animated.View
+        style={[
+          backgroundStyles.pulse,
+          {
+            borderColor: hexToRgba(theme.primary, 0.25),
+            opacity: pulseOpacity,
+          },
+        ]}
+      />
+    </View>
+  );
+};
+
 const createStyles = (theme: Theme) =>
   StyleSheet.create({
-    safeArea: { flex: 1, backgroundColor: theme.background },
-    backgroundGradient: {
-      ...StyleSheet.absoluteFillObject,
-    },
-    glow: {
-      position: 'absolute',
-      width: 260,
-      height: 260,
-      borderRadius: 260,
-      opacity: 0.65,
-      transform: [{ rotate: '25deg' }],
-    },
-    glowPrimary: {
-      top: -80,
-      right: -40,
-    },
-    glowSecondary: {
-      bottom: -70,
-      left: -20,
-    },
+    safeArea: { flex: 1, backgroundColor: theme.background, overflow: 'hidden' },
     container: {
       flex: 1,
       padding: 24,
@@ -255,54 +422,6 @@ const createStyles = (theme: Theme) =>
       color: theme.textSecondary,
       fontSize: 15,
     },
-    featureRow: {
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-      gap: 8,
-    },
-    featurePill: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      paddingHorizontal: 12,
-      paddingVertical: 8,
-      borderRadius: 999,
-      borderWidth: 1,
-      borderColor: hexToRgba(theme.primary, 0.2),
-      backgroundColor: hexToRgba(theme.primary, 0.08),
-      gap: 6,
-    },
-    featurePillText: {
-      color: theme.primary,
-      fontSize: 13,
-      fontWeight: '600',
-    },
-    heroHighlights: {
-      flexDirection: 'row',
-      gap: 12,
-    },
-    highlightCard: {
-      flex: 1,
-      padding: 16,
-      borderRadius: 20,
-      backgroundColor: hexToRgba(theme.card, 0.9),
-      borderWidth: 1,
-      borderColor: hexToRgba(theme.border, 0.5),
-      gap: 6,
-    },
-    highlightLabel: {
-      color: theme.textSecondary,
-      fontSize: 12,
-      letterSpacing: 0.4,
-    },
-    highlightValue: {
-      color: theme.text,
-      fontSize: 24,
-      fontWeight: '700',
-    },
-    highlightMeta: {
-      color: theme.textTertiary,
-      fontSize: 12,
-    },
     form: {
       gap: 16,
       padding: 20,
@@ -311,14 +430,24 @@ const createStyles = (theme: Theme) =>
       borderWidth: 1,
       borderColor: hexToRgba(theme.border, 0.5),
     },
-    errorContainer: {
-      backgroundColor: hexToRgba(theme.danger, 0.08),
+    feedbackContainer: {
       borderRadius: 12,
       padding: 12,
       borderWidth: 1,
+    },
+    feedbackInfo: {
+      backgroundColor: hexToRgba(theme.primary, 0.08),
+      borderColor: hexToRgba(theme.primary, 0.3),
+    },
+    feedbackError: {
+      backgroundColor: hexToRgba(theme.danger, 0.08),
       borderColor: hexToRgba(theme.danger, 0.3),
     },
-    errorText: {
+    feedbackTextInfo: {
+      color: theme.primary,
+      fontSize: 14,
+    },
+    feedbackTextError: {
       color: theme.danger,
       fontSize: 14,
     },
@@ -362,5 +491,37 @@ const createStyles = (theme: Theme) =>
       color: theme.textSecondary,
     },
   });
+
+const backgroundStyles = StyleSheet.create({
+  container: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  backgroundGradient: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  overlayGradient: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  orb: {
+    position: 'absolute',
+  },
+  waveLayer: {
+    position: 'absolute',
+    width: 520,
+    height: 520,
+    borderRadius: 260,
+    bottom: -220,
+    left: -80,
+  },
+  pulse: {
+    position: 'absolute',
+    width: 420,
+    height: 420,
+    borderRadius: 210,
+    borderWidth: 1.2,
+    alignSelf: 'center',
+    top: 120,
+  },
+});
 
 

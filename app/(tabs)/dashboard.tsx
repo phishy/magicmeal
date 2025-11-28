@@ -128,11 +128,6 @@ export default function DashboardScreen() {
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
       <ScrollView contentContainerStyle={styles.container}>
-        <ThemedText type="title" style={styles.heading}>
-          Dashboard
-        </ThemedText>
-        <ThemedText style={styles.subheading}>At-a-glance look at your progress.</ThemedText>
-
         <CalorieProgressCard
           goal={calorieGoal}
           consumed={totals.calories}
@@ -196,12 +191,6 @@ const createStyles = (theme: Theme) =>
     container: {
       padding: 20,
       gap: 16,
-    },
-    heading: {
-      marginTop: 8,
-    },
-    subheading: {
-      color: theme.textSecondary,
     },
     grid: {
       flexDirection: 'row',

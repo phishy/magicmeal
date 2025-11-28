@@ -1,9 +1,14 @@
+import DateTimePicker, {
+    DateTimePickerAndroid,
+    DateTimePickerEvent,
+} from '@react-native-community/datetimepicker';
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import {
     ActivityIndicator,
     Alert,
     Dimensions,
+    Platform,
     ScrollView,
     StyleSheet,
     TextInput,
@@ -19,16 +24,31 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import type { Theme } from '@/constants/theme';
+import { filterEntriesByRange, getTrendRangeLabel, getTrendRangeSubtitle, TREND_RANGE_PRESETS } from '@/lib/trendRange';
 import { useAppTheme } from '@/providers/ThemePreferenceProvider';
 import {
     createBloodPressureEntry,
     fetchBloodPressureEntries,
     removeBloodPressureEntry,
 } from '@/services/bloodPressure';
-import type { BloodPressureEntry } from '@/types';
+import type { BloodPressureEntry, DateRange, TrendRangePreset } from '@/types';
 
 const CHART_HEIGHT = 160;
-const CHART_WIDTH = Dimensions.get('window').width - 48;
+const CARD_HORIZONTAL_GUTTER = 48;
+const Y_AXIS_WIDTH = 44;
+const AXIS_GAP = 12;
+const AVAILABLE_WIDTH = Dimensions.get('window').width - CARD_HORIZONTAL_GUTTER;
+const CHART_WIDTH = Math.max(180, AVAILABLE_WIDTH - Y_AXIS_WIDTH - AXIS_GAP);
+const X_AXIS_LABEL_HEIGHT = 26;
+const Y_AXIS_TICKS = 4;
+
+type ChartPoint = { x: number; y: number };
+type DateRangeField = 'start' | 'end';
+type PickerConfig = {
+  field: DateRangeField;
+  value: Date;
+  onChange: (event: DateTimePickerEvent, date?: Date) => void;
+};
 
 export default function BloodPressureTool() {
   const { theme } = useAppTheme();
@@ -38,6 +58,9 @@ export default function BloodPressureTool() {
   const [diastolic, setDiastolic] = useState('');
   const [pulse, setPulse] = useState('');
   const [saving, setSaving] = useState(false);
+  const [chartRange, setChartRange] = useState<TrendRangePreset>('1m');
+  const [customRange, setCustomRange] = useState<DateRange | null>(null);
+  const [pickerConfig, setPickerConfig] = useState<PickerConfig | null>(null);
 
   const {
     data: entries = [],
@@ -51,50 +74,110 @@ export default function BloodPressureTool() {
     }, [mutate])
   );
 
-  const recentEntries = useMemo(() => {
-    const sorted = [...entries].sort(
-      (a, b) => new Date(a.recordedAt).getTime() - new Date(b.recordedAt).getTime()
-    );
-    return sorted.slice(-7);
-  }, [entries]);
+  const chartEntries = useMemo(
+    () => filterEntriesByRange(entries, chartRange, customRange),
+    [entries, chartRange, customRange]
+  );
 
   const chartData = useMemo(() => {
-    if (!recentEntries.length) {
+    if (!chartEntries.length) {
       return {
         systolicPoints: '',
         diastolicPoints: '',
-        systolicNodes: [] as { x: number; y: number }[],
-        diastolicNodes: [] as { x: number; y: number }[],
+        systolicNodes: [] as ChartPoint[],
+        diastolicNodes: [] as ChartPoint[],
+        yAxisLabels: [] as number[],
+        xAxisLabels: [] as { x: number; label: string }[],
       };
     }
 
-    const values = recentEntries.flatMap((entry) => [entry.systolic, entry.diastolic]);
+    const values = chartEntries.flatMap((entry) => [entry.systolic, entry.diastolic]);
     const minValue = Math.min(50, Math.min(...values) - 10);
     const maxValue = Math.max(190, Math.max(...values) + 10);
     const range = maxValue - minValue || 1;
     const stepX =
-      recentEntries.length > 1 ? CHART_WIDTH / (recentEntries.length - 1) : CHART_WIDTH / 2;
+      chartEntries.length > 1 ? CHART_WIDTH / (chartEntries.length - 1) : CHART_WIDTH / 2;
 
-    const mapPoint = (value: number, index: number) => {
-      const x = recentEntries.length > 1 ? index * stepX : CHART_WIDTH / 2;
+    const mapPoint = (value: number, index: number): ChartPoint => {
+      const x = chartEntries.length > 1 ? index * stepX : CHART_WIDTH / 2;
       const normalized = (value - minValue) / range;
       const y = CHART_HEIGHT - normalized * CHART_HEIGHT;
       return { x, y };
     };
 
-    const systolicNodes = recentEntries.map((entry, index) => mapPoint(entry.systolic, index));
-    const diastolicNodes = recentEntries.map((entry, index) => mapPoint(entry.diastolic, index));
+    const systolicNodes = chartEntries.map((entry, index) => mapPoint(entry.systolic, index));
+    const diastolicNodes = chartEntries.map((entry, index) => mapPoint(entry.diastolic, index));
 
-    const toPoints = (nodes: { x: number; y: number }[]) =>
-      nodes.map((point) => `${point.x},${point.y}`).join(' ');
+    const toPoints = (nodes: ChartPoint[]) => nodes.map((point) => `${point.x},${point.y}`).join(' ');
+
+    const yAxisLabels = Array.from({ length: Y_AXIS_TICKS }, (_, idx) => {
+      const denominator = Math.max(Y_AXIS_TICKS - 1, 1);
+      const value = maxValue - (idx / denominator) * (maxValue - minValue);
+      return Math.round(value);
+    });
+
+    const labelCount = Math.min(5, chartEntries.length);
+    const rawIndices = Array.from({ length: labelCount }, (_, idx) =>
+      Math.round((idx / Math.max(labelCount - 1, 1)) * (chartEntries.length - 1))
+    );
+    const uniqueIndices = Array.from(new Set(rawIndices)).sort((a, b) => a - b);
+    const xAxisLabels = uniqueIndices.map((index) => ({
+      x: chartEntries.length > 1 ? index * stepX : CHART_WIDTH / 2,
+      label: new Date(chartEntries[index].recordedAt).toLocaleDateString(undefined, {
+        month: 'short',
+        day: 'numeric',
+      }),
+    }));
 
     return {
       systolicPoints: toPoints(systolicNodes),
       diastolicPoints: toPoints(diastolicNodes),
       systolicNodes,
       diastolicNodes,
+      yAxisLabels,
+      xAxisLabels,
     };
-  }, [recentEntries]);
+  }, [chartEntries]);
+
+  const openDatePicker = useCallback(
+    (field: DateRangeField) => {
+      const currentDate = new Date(customRange?.[field] ?? Date.now());
+
+      const onChange = (_event: DateTimePickerEvent, date?: Date) => {
+        if (!date) {
+          return;
+        }
+        setCustomRange((prev) => {
+          const next: DateRange = {
+            start: prev?.start,
+            end: prev?.end,
+          };
+          next[field] = date.toISOString();
+          if (next.start && next.end && new Date(next.start) > new Date(next.end)) {
+            Alert.alert('Custom range', 'Start date must be before end date.');
+            return prev ?? null;
+          }
+          return next;
+        });
+      };
+
+      if (Platform.OS === 'ios') {
+        setPickerConfig({
+          field,
+          value: currentDate,
+          onChange,
+        });
+      } else {
+        DateTimePickerAndroid.open({
+          mode: 'date',
+          display: 'calendar',
+          value: currentDate,
+          onChange,
+        });
+      }
+    },
+    [customRange]
+  );
 
   const handleSaveEntry = useCallback(async () => {
     const systolicValue = Number(systolic);
@@ -141,6 +224,11 @@ export default function BloodPressureTool() {
     [mutate]
   );
 
+  const readingsLabel = chartEntries.length === 1 ? 'reading' : 'readings';
+  const chartSubtitle = chartEntries.length
+    ? `${getTrendRangeSubtitle(chartRange)} · ${chartEntries.length} ${readingsLabel}`
+    : 'No readings in this range yet';
+
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
       <ScrollView style={styles.container} contentContainerStyle={styles.content}>
@@ -150,13 +238,54 @@ export default function BloodPressureTool() {
               <ThemedText type="title" style={styles.graphTitle}>
                 Blood Pressure
               </ThemedText>
-              <ThemedText style={styles.graphSubtitle}>
-                Last {recentEntries.length || 'No'} readings
-              </ThemedText>
+              <ThemedText style={styles.graphSubtitle}>{chartSubtitle}</ThemedText>
             </View>
           </View>
 
-          {recentEntries.length === 0 ? (
+          <View style={styles.rangeSelector}>
+            {TREND_RANGE_PRESETS.map((range) => (
+              <TouchableOpacity
+                key={range}
+                style={[styles.rangeTab, chartRange === range && styles.rangeTabActive]}
+                onPress={() => setChartRange(range)}
+              >
+                <ThemedText
+                  style={[
+                    styles.rangeTabLabel,
+                    chartRange === range && styles.rangeTabLabelActive,
+                  ]}
+                >
+                  {getTrendRangeLabel(range)}
+                </ThemedText>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          {chartRange === 'custom' && (
+            <View style={styles.customRangeRow}>
+              <View style={styles.customInputContainer}>
+                <ThemedText style={styles.customLabel}>Start</ThemedText>
+                <TouchableOpacity style={styles.customInput} onPress={() => openDatePicker('start')}>
+                  <ThemedText style={styles.customInputText}>
+                    {customRange?.start ? new Date(customRange.start).toLocaleDateString() : 'Select date'}
+                  </ThemedText>
+                </TouchableOpacity>
+              </View>
+              <View style={styles.customInputContainer}>
+                <ThemedText style={styles.customLabel}>End</ThemedText>
+                <TouchableOpacity style={styles.customInput} onPress={() => openDatePicker('end')}>
+                  <ThemedText style={styles.customInputText}>
+                    {customRange?.end ? new Date(customRange.end).toLocaleDateString() : 'Select date'}
+                  </ThemedText>
+                </TouchableOpacity>
+              </View>
+              <TouchableOpacity style={styles.clearCustomButton} onPress={() => setCustomRange(null)}>
+                <ThemedText style={styles.clearCustomLabel}>Clear</ThemedText>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {chartEntries.length === 0 ? (
             <View style={styles.emptyGraph}>
               <ThemedText style={styles.emptyGraphText}>
                 Add readings to see your trend over time.
@@ -164,37 +293,64 @@ export default function BloodPressureTool() {
             </View>
           ) : (
             <>
-              <Svg width={CHART_WIDTH} height={CHART_HEIGHT}>
-                {[0.25, 0.5, 0.75].map((ratio) => (
-                  <Line
-                    key={ratio}
-                    x1={0}
-                    x2={CHART_WIDTH}
-                    y1={CHART_HEIGHT * ratio}
-                    y2={CHART_HEIGHT * ratio}
-                    stroke={theme.separator}
-                    strokeDasharray="4 4"
-                  />
-                ))}
-                <Polyline
-                  points={chartData.diastolicPoints}
-                  stroke={theme.secondary}
-                  strokeWidth={3}
-                  fill="none"
-                />
-                <Polyline
-                  points={chartData.systolicPoints}
-                  stroke={theme.primary}
-                  strokeWidth={3}
-                  fill="none"
-                />
-                {chartData.systolicNodes.map((point, index) => (
-                  <Circle key={`sys-${index}`} cx={point.x} cy={point.y} r={4} fill={theme.primary} />
-                ))}
-                {chartData.diastolicNodes.map((point, index) => (
-                  <Circle key={`dia-${index}`} cx={point.x} cy={point.y} r={4} fill={theme.secondary} />
-                ))}
-              </Svg>
+              <View style={styles.chartArea}>
+                <View style={styles.yAxisColumn}>
+                  <View style={styles.yAxisLabels}>
+                    {chartData.yAxisLabels.map((label, idx) => (
+                      <ThemedText key={`y-axis-${label}-${idx}`} style={styles.yAxisLabel}>
+                        {label}
+                      </ThemedText>
+                    ))}
+                  </View>
+                  <ThemedText style={styles.yAxisTitle}>mmHg</ThemedText>
+                </View>
+                <View style={styles.chartCanvas}>
+                  <View style={styles.chartCanvasInner}>
+                    <Svg width={CHART_WIDTH} height={CHART_HEIGHT}>
+                      {[0.25, 0.5, 0.75].map((ratio) => (
+                        <Line
+                          key={ratio}
+                          x1={0}
+                          x2={CHART_WIDTH}
+                          y1={CHART_HEIGHT * ratio}
+                          y2={CHART_HEIGHT * ratio}
+                          stroke={theme.separator}
+                          strokeDasharray="4 4"
+                        />
+                      ))}
+                      <Polyline
+                        points={chartData.diastolicPoints}
+                        stroke={theme.secondary}
+                        strokeWidth={3}
+                        fill="none"
+                      />
+                      <Polyline
+                        points={chartData.systolicPoints}
+                        stroke={theme.primary}
+                        strokeWidth={3}
+                        fill="none"
+                      />
+                      {chartData.systolicNodes.map((point, index) => (
+                        <Circle key={`sys-${index}`} cx={point.x} cy={point.y} r={4} fill={theme.primary} />
+                      ))}
+                      {chartData.diastolicNodes.map((point, index) => (
+                        <Circle key={`dia-${index}`} cx={point.x} cy={point.y} r={4} fill={theme.secondary} />
+                      ))}
+                    </Svg>
+                    <View style={styles.xAxisLabelsLayer} pointerEvents="none">
+                      {chartData.xAxisLabels.map((label, idx) => (
+                        <View
+                          key={`x-axis-${label.label}-${idx}`}
+                          style={[styles.xAxisLabelContainer, { left: label.x }]}
+                        >
+                          <ThemedText style={styles.xAxisLabel}>{label.label}</ThemedText>
+                        </View>
+                      ))}
+                    </View>
+                  </View>
+                  <ThemedText style={styles.xAxisTitle}>Date</ThemedText>
+                </View>
+              </View>
               <View style={styles.legend}>
                 <View style={styles.legendItem}>
                   <View style={[styles.legendDot, { backgroundColor: theme.primary }]} />
@@ -310,6 +466,17 @@ export default function BloodPressureTool() {
           )}
         </ThemedView>
       </ScrollView>
+      {Platform.OS === 'ios' && pickerConfig && (
+        <DateTimePicker
+          mode="date"
+          display="spinner"
+          value={pickerConfig.value}
+          onChange={(event, date) => {
+            pickerConfig.onChange(event, date);
+          }}
+          style={styles.iosPicker}
+        />
+      )}
     </SafeAreaView>
   );
 }
@@ -319,10 +486,72 @@ const createStyles = (theme: Theme) =>
     safeArea: { flex: 1 },
     container: { flex: 1 },
     content: { padding: 20, gap: 16, paddingBottom: 80 },
-    graphCard: { padding: 20, borderRadius: 16, backgroundColor: theme.card, alignItems: 'center' },
-    graphHeader: { width: '100%', marginBottom: 12 },
+    graphCard: { padding: 20, borderRadius: 16, backgroundColor: theme.card, gap: 12 },
+    graphHeader: { width: '100%' },
     graphTitle: { fontSize: 24 },
     graphSubtitle: { color: theme.textSecondary, marginTop: 4 },
+    rangeSelector: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 8,
+    },
+    rangeTab: {
+      paddingVertical: 6,
+      paddingHorizontal: 12,
+      borderRadius: 999,
+      borderWidth: 1,
+      borderColor: theme.border,
+    },
+    rangeTabActive: {
+      backgroundColor: theme.primary,
+      borderColor: theme.primary,
+    },
+    rangeTabLabel: {
+      fontSize: 13,
+      color: theme.textSecondary,
+    },
+    rangeTabLabelActive: {
+      color: theme.onPrimary,
+      fontWeight: '600',
+    },
+    customRangeRow: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      alignItems: 'flex-end',
+      gap: 8,
+    },
+    customInputContainer: {
+      flex: 1,
+    },
+    customLabel: {
+      fontSize: 12,
+      color: theme.textSecondary,
+      marginBottom: 4,
+    },
+    customInput: {
+      borderWidth: 1,
+      borderColor: theme.border,
+      borderRadius: 8,
+      paddingHorizontal: 10,
+      paddingVertical: 8,
+      backgroundColor: theme.cardElevated,
+    },
+    customInputText: {
+      color: theme.text,
+      fontSize: 14,
+    },
+    clearCustomButton: {
+      paddingVertical: 8,
+      paddingHorizontal: 12,
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: theme.border,
+      alignSelf: 'flex-end',
+    },
+    clearCustomLabel: {
+      color: theme.textSecondary,
+      fontSize: 13,
+    },
     emptyGraph: {
       height: CHART_HEIGHT,
       width: '100%',
@@ -334,7 +563,63 @@ const createStyles = (theme: Theme) =>
       paddingHorizontal: 16,
     },
     emptyGraphText: { textAlign: 'center', color: theme.textSecondary },
-    legend: { flexDirection: 'row', justifyContent: 'center', gap: 16, width: '100%', marginTop: 16 },
+    chartArea: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      width: '100%',
+      gap: AXIS_GAP,
+    },
+    yAxisColumn: {
+      width: Y_AXIS_WIDTH,
+      alignItems: 'flex-end',
+    },
+    yAxisLabels: {
+      height: CHART_HEIGHT,
+      justifyContent: 'space-between',
+    },
+    yAxisLabel: {
+      fontSize: 12,
+      color: theme.textSecondary,
+    },
+    yAxisTitle: {
+      marginTop: 4,
+      fontSize: 12,
+      color: theme.textSecondary,
+    },
+    chartCanvas: {
+      flex: 1,
+      alignItems: 'flex-start',
+      gap: 4,
+    },
+    chartCanvasInner: {
+      width: CHART_WIDTH,
+      height: CHART_HEIGHT + X_AXIS_LABEL_HEIGHT,
+      position: 'relative',
+    },
+    xAxisLabelsLayer: {
+      position: 'absolute',
+      left: 0,
+      right: 0,
+      bottom: 0,
+      height: X_AXIS_LABEL_HEIGHT,
+    },
+    xAxisLabelContainer: {
+      position: 'absolute',
+      bottom: 0,
+      transform: [{ translateX: -18 }],
+    },
+    xAxisLabel: {
+      fontSize: 12,
+      color: theme.textSecondary,
+      textAlign: 'center',
+      minWidth: 36,
+    },
+    xAxisTitle: {
+      fontSize: 12,
+      color: theme.textSecondary,
+      alignSelf: 'flex-start',
+    },
+    legend: { flexDirection: 'row', justifyContent: 'flex-start', gap: 16, width: '100%', marginTop: 12 },
     legendItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
     legendDot: { width: 10, height: 10, borderRadius: 5 },
     legendLabel: { fontSize: 14, color: theme.textSecondary },
@@ -373,5 +658,8 @@ const createStyles = (theme: Theme) =>
     swipeButton: { justifyContent: 'center', alignItems: 'center', width: 90, height: '100%', borderRadius: 12, gap: 4 },
     deleteButton: { backgroundColor: theme.danger },
     swipeButtonText: { color: theme.onDanger, fontSize: 12, fontWeight: '600' },
+    iosPicker: {
+      backgroundColor: theme.card,
+    },
   });
 

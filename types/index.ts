@@ -1,3 +1,4 @@
+import type { NativeStackNavigationOptions } from '@react-navigation/native-stack';
 import type { ReactNode } from 'react';
 import type { StyleProp, ViewStyle } from 'react-native';
 
@@ -169,4 +170,19 @@ export interface ProfileGoalsRecord {
   weekly_goal_type: WeeklyGoalType | null;
   activity_level: ActivityLevel | null;
 }
+
+export interface SentryRuntimeConfig {
+  dsn?: string;
+  environment?: string;
+  enableLogs: boolean;
+  sendDefaultPii: boolean;
+  enableFeedback: boolean;
+  enableReplay: boolean;
+  replaysSessionSampleRate: number;
+  replaysOnErrorSampleRate: number;
+}
+
+export type AppStackScreenOptions = NativeStackNavigationOptions & {
+  headerBackTitleVisible?: boolean;
+};
 

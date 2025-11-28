@@ -144,7 +144,11 @@ npx expo install expo-sqlite
 
 ## 🔑 API Keys Required
 
-Add these to your `.env` file:
+Copy `env.example` to `.env` and fill in your keys:
+
+```bash
+cp env.example .env
+```
 
 ```env
 # Supabase backend (generated after `supabase start`)
@@ -157,6 +161,16 @@ EXPO_PUBLIC_OPENAI_API_KEY=your_key_here
 # Optional: Premium food database
 EXPO_PUBLIC_NUTRITIONIX_APP_ID=your_id_here
 EXPO_PUBLIC_NUTRITIONIX_APP_KEY=your_key_here
+
+# Optional: Sentry monitoring (keep blank/false for public forks)
+EXPO_PUBLIC_SENTRY_DSN=
+EXPO_PUBLIC_SENTRY_ENVIRONMENT=development
+EXPO_PUBLIC_SENTRY_ENABLE_LOGS=true
+EXPO_PUBLIC_SENTRY_SEND_DEFAULT_PII=false
+EXPO_PUBLIC_SENTRY_ENABLE_FEEDBACK=false
+EXPO_PUBLIC_SENTRY_ENABLE_REPLAY=false
+EXPO_PUBLIC_SENTRY_REPLAY_SAMPLE_RATE=0.1
+EXPO_PUBLIC_SENTRY_REPLAY_ON_ERROR_SAMPLE_RATE=1
 ```
 
 ## 📱 Features Roadmap

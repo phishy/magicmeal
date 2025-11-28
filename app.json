@@ -60,6 +60,14 @@
           "savePhotosPermission": "Allow MagicMeal to save meal photos.",
           "isAccessMediaLocationEnabled": true
         }
+      ],
+      [
+        "@sentry/react-native/expo",
+        {
+          "url": "https://sentry.io/",
+          "project": "magicmeal",
+          "organization": "newnewmedia"
+        }
       ]
     ],
     "experiments": {

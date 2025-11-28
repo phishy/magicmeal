@@ -19,6 +19,7 @@
     "@react-navigation/bottom-tabs": "^7.4.0",
     "@react-navigation/elements": "^2.6.3",
     "@react-navigation/native": "^7.1.8",
+    "@sentry/react-native": "^7.7.0",
     "@supabase/supabase-js": "^2.86.0",
     "ai": "^5.0.102",
     "expo": "~54.0.25",

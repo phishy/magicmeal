@@ -7,12 +7,13 @@ import { lookupProductByBarcode } from '@/services/openFoodFacts';
 import type { MealType } from '@/types';
 import { Camera, CameraView } from 'expo-camera';
 import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Alert, StyleSheet, TouchableOpacity, View } from 'react-native';
 
 export default function BarcodeScanner() {
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
   const [scanned, setScanned] = useState(false);
+  const scanLockRef = useRef(false);
   const router = useRouter();
   const { theme } = useAppTheme();
 
@@ -23,7 +24,17 @@ export default function BarcodeScanner() {
     })();
   }, []);
 
+  const resetScanState = () => {
+    scanLockRef.current = false;
+    setScanned(false);
+  };
+
   const handleBarCodeScanned = async ({ type, data }: { type: string; data: string }) => {
+    if (scanLockRef.current) {
+      return;
+    }
+
+    scanLockRef.current = true;
     setScanned(true);
 
     // Look up barcode in database (you'll integrate with Open Food Facts API or similar)
@@ -36,45 +47,32 @@ export default function BarcodeScanner() {
 
       if (product) {
         const nutriments = product.nutriments || {};
+        await addToLog(product, nutriments);
+        return;
+      }
 
-        Alert.alert(
-          'Product Found!',
-          `${product.product_name || 'Unknown Product'}\n\nCalories: ${Math.round(nutriments.energy_value || nutriments['energy-kcal'] || 0)} kcal\nProtein: ${nutriments.proteins || 0}g\nCarbs: ${nutriments.carbohydrates || 0}g\nFat: ${nutriments.fat || 0}g`,
-          [
-            {
-              text: 'Cancel',
-              style: 'cancel',
-              onPress: () => setScanned(false),
-            },
-            {
-              text: 'Add to Log',
-              onPress: () => addToLog(product, nutriments),
-            },
-          ]
-        );
-      } else {
-        Alert.alert(
-          'Product Not Found',
-          'This barcode is not in our database. Would you like to add it manually?',
-          [
-            {
-              text: 'Cancel',
-              style: 'cancel',
-              onPress: () => setScanned(false),
-            },
+      Alert.alert(
+        'Product Not Found',
+        'This barcode is not in our database. Would you like to add it manually?',
+        [
+          {
+            text: 'Cancel',
+            style: 'cancel',
+            onPress: resetScanState,
+          },
             {
               text: 'Add Manually',
               onPress: () => {
+                resetScanState();
                 router.push('/food-search');
               },
             },
-          ]
-        );
-      }
+        ]
+      );
     } catch (error) {
       console.error('Barcode lookup error:', error);
       Alert.alert('Error', 'Failed to look up barcode. Please try again.');
-      setScanned(false);
+      resetScanState();
     }
   };
 
@@ -91,7 +89,7 @@ export default function BarcodeScanner() {
         rawFood: { product, nutriments, source: 'barcode' },
       });
 
-      Alert.alert('Success', 'Meal added to your log!');
+      resetScanState();
       router.back();
     } catch {
       Alert.alert('Error', 'Failed to save meal. Please try again.');
@@ -154,7 +152,7 @@ export default function BarcodeScanner() {
           {scanned && (
             <TouchableOpacity
               style={dynamicStyles.rescanButton}
-              onPress={() => setScanned(false)}
+              onPress={resetScanState}
             >
               <ThemedText style={dynamicStyles.rescanText}>Tap to Scan Again</ThemedText>
             </TouchableOpacity>

@@ -8,6 +8,7 @@ import { Redirect } from 'expo-router';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { APP_NAME, APP_STUDIO_NAME } from '@/constants/app';
 import type { Theme } from '@/constants/theme';
 import { useSession } from '@/providers/SessionProvider';
 import { useAppTheme } from '@/providers/ThemePreferenceProvider';
@@ -90,10 +91,10 @@ export default function LoginScreen() {
           <View style={styles.header}>
             <View style={styles.magicBadge}>
               <Ionicons name="sparkles" size={18} color={theme.onPrimary} style={styles.badgeIcon} />
-              <ThemedText style={styles.badgeText}>MagicMeal Studio</ThemedText>
+              <ThemedText style={styles.badgeText}>{APP_STUDIO_NAME}</ThemedText>
             </View>
             <ThemedText type="title" style={styles.title}>
-              Welcome to MagicMeal
+              Welcome to {APP_NAME}
             </ThemedText>
             <ThemedText style={styles.subtitle}>
               {mode === 'signin' ? 'Sign in to pick up where you left off.' : 'Create an account to start your plan.'}

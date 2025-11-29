@@ -232,6 +232,12 @@ Contributions welcome! This is an open-source project.
 - Recommended editor add-ons: *Conventional Commits* and *GitLens* (VS Code/Cursor) for inline history + message templates, plus keep ESLint warnings visible before committing.
 - Typical flow: `git pull` → build/test changes → `npm run lint` → stage files → `npm run commit` → push + open PR. Cursor users can also bind a custom slash command to `npm run commit` for quick access.
 
+### 🚀 Manual Releases (semantic-release)
+
+- When you’re ready to tag a build, open GitHub → *Actions* → **Manual Release** workflow → **Run workflow**. It inspects commits since the last tag, bumps the version, updates `CHANGELOG.md`, and cuts a GitHub Release.
+- The workflow relies on Conventional Commit history, so feel free to reword commits before merging to keep the log clean.
+- Release automation is disabled by default—no tags are created until you explicitly trigger the workflow_dispatch run.
+
 ## 📞 Support
 
 Open an issue on GitHub for bug reports or feature requests.

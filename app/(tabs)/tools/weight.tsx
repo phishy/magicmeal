@@ -314,71 +314,75 @@ export default function WeightTool() {
           <ThemedText style={styles.importHelperText}>{importHelperText}</ThemedText>
         )}
 
-        <ThemedView style={styles.entriesCard}>
+        <View style={styles.entriesSection}>
           <ThemedText type="subtitle" style={styles.sectionTitle}>
             Weight History
           </ThemedText>
-          {isLoading ? (
-            <View style={styles.emptyList}>
-              <ThemedText style={styles.emptyListText}>Loading entries...</ThemedText>
-            </View>
-          ) : weeklyGroups.length === 0 ? (
-            <View style={styles.emptyList}>
-              <ThemedText style={styles.emptyListText}>
-                No weight entries yet. Start logging above.
-              </ThemedText>
-            </View>
-          ) : (
-            weeklyGroups.map((group) => (
-              <View key={group.key} style={styles.weekSection}>
-                <View style={styles.weekHeader}>
-                  <ThemedText style={styles.weekLabel}>{group.label}</ThemedText>
-                  <ThemedText style={styles.weekAverage}>
-                    {group.average.toFixed(1)} lbs avg
-                  </ThemedText>
-                </View>
-                {group.entries.map((entry) => (
-                  <Swipeable
-                    key={entry.id}
-                    renderRightActions={() => (
-                      <View style={styles.swipeActions}>
-                        <TouchableOpacity
-                          style={[styles.swipeButton, styles.deleteButton]}
-                          onPress={() => handleRemoveEntry(entry.id)}
-                        >
-                          <IconSymbol size={20} name="trash.fill" color={theme.onDanger} />
-                          <ThemedText style={styles.swipeButtonText}>Delete</ThemedText>
-                        </TouchableOpacity>
-                      </View>
-                    )}
-                  >
-                    <View style={styles.entryItem}>
-                      <View>
-                        <ThemedText style={styles.entryValues}>
-                          {entry.weight}
-                          <ThemedText style={styles.entryUnit}> {entry.unit ?? 'lb'}</ThemedText>
-                        </ThemedText>
-                        <ThemedText style={styles.entrySubText}>
-                          {new Date(entry.recordedAt).toLocaleTimeString(undefined, {
-                            hour: 'numeric',
-                            minute: '2-digit',
+          <ThemedView style={styles.entriesCard}>
+            {isLoading ? (
+              <View style={styles.emptyList}>
+                <ThemedText style={styles.emptyListText}>Loading entries...</ThemedText>
+              </View>
+            ) : weeklyGroups.length === 0 ? (
+              <View style={styles.emptyList}>
+                <ThemedText style={styles.emptyListText}>
+                  No weight entries yet. Start logging above.
+                </ThemedText>
+              </View>
+            ) : (
+              weeklyGroups.map((group) => (
+                <View key={group.key} style={styles.weekSection}>
+                  <View style={styles.weekHeader}>
+                    <ThemedText style={styles.weekLabel}>{group.label}</ThemedText>
+                    <ThemedText style={styles.weekAverage}>
+                      {group.average.toFixed(1)} lbs avg
+                    </ThemedText>
+                  </View>
+                  {group.entries.map((entry, entryIndex) => {
+                    const isLastEntry = entryIndex === group.entries.length - 1;
+                    return (
+                    <Swipeable
+                      key={entry.id}
+                      renderRightActions={() => (
+                        <View style={styles.swipeActions}>
+                          <TouchableOpacity
+                            style={[styles.swipeButton, styles.deleteButton]}
+                            onPress={() => handleRemoveEntry(entry.id)}
+                          >
+                            <IconSymbol size={20} name="trash.fill" color={theme.onDanger} />
+                            <ThemedText style={styles.swipeButtonText}>Delete</ThemedText>
+                          </TouchableOpacity>
+                        </View>
+                      )}
+                    >
+                      <View style={[styles.entryItem, isLastEntry && styles.entryItemLast]}>
+                        <View>
+                          <ThemedText style={styles.entryValues}>
+                            {entry.weight}
+                            <ThemedText style={styles.entryUnit}> {entry.unit ?? 'lb'}</ThemedText>
+                          </ThemedText>
+                          <ThemedText style={styles.entrySubText}>
+                            {new Date(entry.recordedAt).toLocaleTimeString(undefined, {
+                              hour: 'numeric',
+                              minute: '2-digit',
+                            })}
+                          </ThemedText>
+                        </View>
+                        <ThemedText style={styles.entryTimestamp}>
+                          {new Date(entry.recordedAt).toLocaleDateString(undefined, {
+                            weekday: 'short',
+                            month: 'short',
+                            day: 'numeric',
                           })}
                         </ThemedText>
                       </View>
-                      <ThemedText style={styles.entryTimestamp}>
-                        {new Date(entry.recordedAt).toLocaleDateString(undefined, {
-                          weekday: 'short',
-                          month: 'short',
-                          day: 'numeric',
-                        })}
-                      </ThemedText>
-                    </View>
-                  </Swipeable>
-                ))}
-              </View>
-            ))
-          )}
-        </ThemedView>
+                    </Swipeable>
+                  )})}
+                </View>
+              ))
+            )}
+          </ThemedView>
+        </View>
       </ScrollView>
       {Platform.OS === 'ios' && pickerConfig && (
         <DateTimePicker
@@ -579,8 +583,14 @@ const createStyles = (theme: Theme) =>
       color: theme.textSecondary,
       fontSize: 13,
     },
+    entriesSection: {
+      gap: 12,
+      marginBottom: 12,
+    },
     entriesCard: {
-      padding: 20,
+      paddingTop: 0,
+      paddingHorizontal: 20,
+      paddingBottom: 20,
       borderRadius: 16,
       backgroundColor: theme.card,
       gap: 12,
@@ -593,9 +603,10 @@ const createStyles = (theme: Theme) =>
       justifyContent: 'space-between',
       alignItems: 'center',
       marginBottom: 8,
+      marginHorizontal: -20,
       backgroundColor: theme.cardElevated,
       paddingVertical: 8,
-      paddingHorizontal: 12,
+      paddingHorizontal: 20,
       borderRadius: 10,
     },
     weekLabel: {
@@ -620,6 +631,9 @@ const createStyles = (theme: Theme) =>
       paddingVertical: 12,
       borderBottomWidth: 1,
       borderBottomColor: theme.separator,
+    },
+    entryItemLast: {
+      borderBottomWidth: 0,
     },
     entryValues: {
       fontSize: 18,

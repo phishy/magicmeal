@@ -10,7 +10,9 @@
     "web": "expo start --web",
     "web:build": "expo export --platform web",
     "lint": "expo lint",
-    "postinstall": "patch-package"
+    "postinstall": "patch-package",
+    "test:e2e": "playwright test",
+    "test:e2e:ci": "npx playwright install && wait-on http://localhost:3000 && playwright test --reporter=github"
   },
   "dependencies": {
     "@ai-sdk/openai": "^2.0.73",
@@ -63,10 +65,13 @@
     "zod": "^4.1.13"
   },
   "devDependencies": {
+    "@playwright/test": "^1.52.0",
     "@types/react": "~19.1.0",
     "eslint": "^9.25.0",
     "eslint-config-expo": "~10.0.0",
-    "typescript": "~5.9.2"
+    "serve": "^14.2.4",
+    "typescript": "~5.9.2",
+    "wait-on": "^8.0.3"
   },
   "private": true
 }

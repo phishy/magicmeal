@@ -2,6 +2,23 @@
 
 ![MagicMeal hero UI](img/hero-image.png)
 
+## 📸 Screenshots
+
+---
+
+<p align="center">
+  <a href="img/screen-01.png" alt="MagicMeal logging view">
+        <img src="img/screen-01.png" alt="MagicMeal logging view" width="19%" /></a>
+  <a href="img/screen-02.png" alt="MagicMeal nutrition summary">
+        <img src="img/screen-02.png" alt="MagicMeal nutrition summary" width="19%" /></a>
+  <a href="img/screen-03.png" alt="MagicMeal meal insights">
+        <img src="img/screen-03.png" alt="MagicMeal meal insights" width="19%" /></a>
+  <a href="img/screen-04.png" alt="MagicMeal goals screen">
+        <img src="img/screen-04.png" alt="MagicMeal goals screen" width="19%" /></a>
+  <a href="img/screen-05.png" alt="MagicMeal progress trends">
+        <img src="img/screen-05.png" alt="MagicMeal progress trends" width="19%" /></a>
+</p>
+
 ## 📷 Dashboard Preview
 
 Get a feel for the in-app experience with a look at the primary dashboard that surfaces calorie progress, macros, and recent weights at a glance.

@@ -246,8 +246,9 @@ const styles = (theme: Theme) =>
       justifyContent: 'center',
     },
     chartLabel: {
-      position: 'absolute',
+      ...StyleSheet.absoluteFillObject,
       alignItems: 'center',
+      justifyContent: 'center',
     },
     remainingValue: {
       fontSize: 32,
@@ -305,8 +306,9 @@ const styles = (theme: Theme) =>
       justifyContent: 'center',
     },
     macroChartLabel: {
-      position: 'absolute',
+      ...StyleSheet.absoluteFillObject,
       alignItems: 'center',
+      justifyContent: 'center',
     },
     macroValue: {
       fontSize: 24,

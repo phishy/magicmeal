@@ -5,7 +5,7 @@ import { getDefaultModelId } from '@/constants/ai';
 import { getDeveloperSettingsSnapshot } from '@/lib/developerSettingsStore';
 import type { AiProviderId, TranscriptionFilePayload } from '@/types';
 
-const OPENAI_API_KEY = process.env.EXPO_PUBLIC_OPENAI_API_KEY;
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 const OPENAI_BASE_URL = process.env.EXPO_PUBLIC_OPENAI_BASE_URL;
 const OLLAMA_BASE_URL = process.env.EXPO_PUBLIC_OLLAMA_BASE_URL || 'http://127.0.0.1:11434/api';
 const OLLAMA_API_KEY = process.env.EXPO_PUBLIC_OLLAMA_API_KEY;
@@ -90,7 +90,7 @@ export function getLanguageModel(options?: { providerId?: AiProviderId; modelId?
 
   if (!client) {
     if (providerId === 'openai') {
-      throw new Error('OpenAI is unavailable. Set EXPO_PUBLIC_OPENAI_API_KEY or pick another provider.');
+      throw new Error('OpenAI is unavailable. Set OPENAI_API_KEY or pick another provider.');
     }
     throw new Error('Ollama is unavailable. Ensure the service is running or update Developer Settings.');
   }
@@ -116,7 +116,7 @@ export async function transcribeAudioFile(
 ): Promise<string> {
   const apiKey = getOpenAiApiKey();
   if (!apiKey) {
-    throw new Error('Set EXPO_PUBLIC_OPENAI_API_KEY to use voice search.');
+    throw new Error('Set OPENAI_API_KEY to use voice search.');
   }
 
   const formData = new FormData();

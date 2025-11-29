@@ -1,8 +1,10 @@
 import { z } from 'zod';
 
+import type { AiFoodItem, AiFoodReference, AiFoodSearchObject } from '@/types';
+
 export const MAX_AI_RESULTS = 6;
 
-export const AiFoodItemSchema = z.object({
+export const AiFoodItemSchema: z.ZodType<AiFoodItem> = z.object({
   name: z.string(),
   brand: z.string().optional(),
   calories: z.number().nonnegative(),
@@ -13,18 +15,16 @@ export const AiFoodItemSchema = z.object({
   verified: z.boolean().optional(),
 });
 
-export const AiFoodSearchSchema = z.object({
-  items: z.array(AiFoodItemSchema).max(MAX_AI_RESULTS).default([]),
-  reasoning: z.string().optional(),
-  references: z
-    .array(
-      z.object({
-        text: z.string(),
-        url: z.string().optional(),
-      })
-    )
-    .optional(),
+const AiFoodReferenceSchema: z.ZodType<AiFoodReference> = z.object({
+  text: z.string(),
+  url: z.string().optional(),
 });
 
-export type AiFoodSearchObject = z.infer<typeof AiFoodSearchSchema>;
+export const AiFoodSearchSchema: z.ZodType<AiFoodSearchObject> = z.object({
+  items: z.array(AiFoodItemSchema).max(MAX_AI_RESULTS).default([]),
+  reasoning: z.string().optional(),
+  references: z.array(AiFoodReferenceSchema).optional(),
+});
+
+export type { AiFoodSearchObject };
 

@@ -85,7 +85,7 @@ Add to `app/photo-scanner.tsx`:
 import OpenAI from 'openai';
 
 const openai = new OpenAI({
-  apiKey: process.env.EXPO_PUBLIC_OPENAI_API_KEY,
+  apiKey: process.env.OPENAI_API_KEY,
 });
 
 const analyzeImage = async (imageUri: string) => {
@@ -154,9 +154,10 @@ cp env.example .env
 # Supabase backend (generated after `supabase start`)
 EXPO_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321
 EXPO_PUBLIC_SUPABASE_ANON_KEY=your_local_anon_key
+SUPABASE_SERVICE_ROLE_KEY=your_local_service_role_key
 
 # For AI Photo Recognition
-EXPO_PUBLIC_OPENAI_API_KEY=your_key_here
+OPENAI_API_KEY=your_key_here
 
 # Optional: Premium food database
 EXPO_PUBLIC_NUTRITIONIX_APP_ID=your_id_here

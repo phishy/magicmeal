@@ -121,7 +121,7 @@ export default function FoodSearch() {
 
   const startRecording = async () => {
     if (!openAiKey) {
-      Alert.alert('Missing configuration', 'Set EXPO_PUBLIC_OPENAI_API_KEY to use voice search.');
+      Alert.alert('Missing configuration', 'Set OPENAI_API_KEY to use voice search.');
       return;
     }
 

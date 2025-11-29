@@ -25,7 +25,7 @@ export async function parseWeightFile(fileContent: string): Promise<WeightInput[
 
   if (!canUseAiWeightImport()) {
     throw new Error(
-      'No built-in importer matched this file and the AI importer is disabled. Set EXPO_PUBLIC_OPENAI_API_KEY to enable AI parsing.'
+      'No built-in importer matched this file and the AI importer is disabled. Set OPENAI_API_KEY to enable AI parsing.'
     );
   }
 

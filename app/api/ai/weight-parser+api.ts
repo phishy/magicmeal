@@ -4,8 +4,8 @@ import { z } from 'zod';
 
 import { getLanguageModel } from '@/services/ai';
 import {
-  WeightParserResponseSchema,
-  buildWeightParserPrompt,
+    WeightParserResponseSchema,
+    buildWeightParserPrompt,
 } from '@/services/weightImport/aiParserShared';
 import { buildAiErrorResponse } from './error-utils';
 

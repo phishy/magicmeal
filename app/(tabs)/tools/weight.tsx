@@ -53,7 +53,7 @@ export default function WeightTool() {
       return 'File import is not supported on this platform.';
     }
     if (!importAvailable) {
-      return 'Set EXPO_PUBLIC_OPENAI_API_KEY to enable AI-powered imports.';
+      return 'Set OPENAI_API_KEY to enable AI-powered imports.';
     }
     return null;
   }, [pickerAvailable, importAvailable]);

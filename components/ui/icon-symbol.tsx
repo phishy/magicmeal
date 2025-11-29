@@ -43,6 +43,7 @@ const MAPPING: IconMapping = {
   'flame.fill': 'local-fire-department',
   'flag.fill': 'flag',
   'fork.knife': 'restaurant',
+  ellipsis: 'more-horiz',
 } as IconMapping;
 
 /**

@@ -49,7 +49,7 @@ _Last updated: 2025-11-27_
 - `npm install`
 - `supabase start` (or `supabase db start`) → copy URL + anon key into `.env` for Expo.
 - `npx expo start` (use `--ios`, `--android`, or `--web` as needed).
-- Optional: `EXPO_PUBLIC_OPENAI_API_KEY` unlocks voice search (`app/food-search.tsx`) and weight import (`app/(tabs)/tools/weight.tsx`).
+- Optional: `OPENAI_API_KEY` unlocks voice search (`app/food-search.tsx`) and weight import (`app/(tabs)/tools/weight.tsx`).
 - The `reset-project` script is destructive; treat it as a last resort when bootstrapping a blank Expo app.
 
 Ping this file whenever a workstream lands, pivots, or needs a hand-off so future agents can ramp faster.

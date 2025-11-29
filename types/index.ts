@@ -45,6 +45,28 @@ export interface FoodItem {
   verified?: boolean;
 }
 
+export interface AiFoodItem {
+  name: string;
+  brand?: string;
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+  serving?: string;
+  verified?: boolean;
+}
+
+export interface AiFoodReference {
+  text: string;
+  url?: string;
+}
+
+export interface AiFoodSearchObject {
+  items: AiFoodItem[];
+  reasoning?: string;
+  references?: AiFoodReference[];
+}
+
 export interface FoodNutritionFacts {
   calories: number;
   protein: number;
@@ -98,6 +120,21 @@ export interface FoodSearchAdapter {
   label: string;
   isAvailable?: () => boolean;
   search: (params: FoodSearchParams) => Promise<FoodSearchResult>;
+}
+
+export interface AiFoodSearchCacheRecord {
+  id: string;
+  cache_key: string;
+  query_text: string;
+  page: number;
+  provider_id?: string | null;
+  model_id?: string | null;
+  response: AiFoodSearchObject;
+  hit_count: number;
+  last_hit_at: string;
+  expires_at: string;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface OpenFoodFactsNutriments {

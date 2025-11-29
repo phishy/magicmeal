@@ -225,6 +225,13 @@ Affero
 
 Contributions welcome! This is an open-source project.
 
+### 🧾 Conventional Commits & Workflow
+
+- Run `npm run commit` (Commitizen) to get a guided prompt for the conventional commit message (`type(scope): subject`). Keep scopes aligned with top-level folders (e.g., `types`, `supabase`, `services`) so shared types stay centralized in `types/index.ts`.
+- Husky automatically runs `commitlint` via the `commit-msg` hook, so commits created outside Commitizen (Cursor’s commit composer, VS Code Source Control, etc.) are still validated.
+- Recommended editor add-ons: *Conventional Commits* and *GitLens* (VS Code/Cursor) for inline history + message templates, plus keep ESLint warnings visible before committing.
+- Typical flow: `git pull` → build/test changes → `npm run lint` → stage files → `npm run commit` → push + open PR. Cursor users can also bind a custom slash command to `npm run commit` for quick access.
+
 ## 📞 Support
 
 Open an issue on GitHub for bug reports or feature requests.

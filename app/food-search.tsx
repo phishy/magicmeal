@@ -1,6 +1,6 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { Audio } from 'expo-av';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -43,6 +43,16 @@ export default function FoodSearch() {
   const [onlyBranded, setOnlyBranded] = useState(false);
   const [mealSheetFood, setMealSheetFood] = useState<FoodItem | null>(null);
   const router = useRouter();
+  const { date: dateParam } = useLocalSearchParams<{ date?: string | string[] }>();
+  const normalizedDateParam = useMemo(() => {
+    if (!dateParam) return undefined;
+    return Array.isArray(dateParam) ? dateParam[0] : dateParam;
+  }, [dateParam]);
+  const targetDate = useMemo(() => {
+    if (!normalizedDateParam) return null;
+    const parsed = new Date(normalizedDateParam);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  }, [normalizedDateParam]);
   const { theme } = useAppTheme();
   const openAiKey = getOpenAiApiKey();
   const PAGE_SIZE = 20;
@@ -111,7 +121,11 @@ export default function FoodSearch() {
 
   const addFoodToLog = async (food: FoodItem, mealType: MealType) => {
     try {
-      await createMeal(mapFoodToMealInput(food, mealType));
+      const mealInput = mapFoodToMealInput(food, mealType);
+      await createMeal({
+        ...mealInput,
+        consumedAt: targetDate?.toISOString(),
+      });
       Alert.alert('Success', 'Meal added to your log!');
       router.replace('/(tabs)');
     } catch {

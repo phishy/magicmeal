@@ -132,9 +132,12 @@ const formatNumber = (value: number) => value.toLocaleString();
 
   const handleAddFood = useCallback(
     (mealType: MealType) => {
-      router.push({ pathname: '/food-search', params: { meal: mealType } });
+      router.push({
+        pathname: '/food-search',
+        params: { meal: mealType, date: selectedDate.toISOString() },
+      });
     },
-    [router]
+    [router, selectedDate]
   );
 
   return (

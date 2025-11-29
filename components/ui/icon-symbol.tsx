@@ -39,6 +39,7 @@ const MAPPING: IconMapping = {
   'mic.fill': 'mic',
   'paintbrush.fill': 'brush',
   'heart.fill': 'favorite',
+  'book.closed.fill': 'menu-book',
   'checkmark.circle.fill': 'check-circle',
   'plus.circle.fill': 'add-circle',
   'arrow.clockwise.circle': 'refresh',

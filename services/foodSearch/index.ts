@@ -1,3 +1,4 @@
+import { getDeveloperSettingsSnapshot } from '@/lib/developerSettingsStore';
 import { aiFoodSearchAdapter } from '@/services/foodSearch/adapters/aiFoodSearchAdapter';
 import { openFoodFactsAdapter } from '@/services/foodSearch/adapters/openFoodFactsAdapter';
 import type {
@@ -6,7 +7,6 @@ import type {
   FoodSearchRequest,
   FoodSearchResult,
 } from '@/types';
-import { getDeveloperSettingsSnapshot } from '@/lib/developerSettingsStore';
 
 const ADAPTERS: Record<FoodSearchAdapterId, FoodSearchAdapter> = {
   [openFoodFactsAdapter.id]: openFoodFactsAdapter,

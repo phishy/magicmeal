@@ -109,6 +109,84 @@ export interface FoodSearchResult {
   metadata?: Record<string, unknown>;
 }
 
+export interface SavedFood {
+  id: string;
+  profileId: string;
+  brandName?: string;
+  description: string;
+  servingSize: string;
+  servingsPerContainer: number;
+  calories: number;
+  totalFat?: number;
+  saturatedFat?: number;
+  polyunsaturatedFat?: number;
+  monounsaturatedFat?: number;
+  transFat?: number;
+  cholesterol?: number;
+  sodium?: number;
+  potassium?: number;
+  totalCarbohydrates?: number;
+  dietaryFiber?: number;
+  sugars?: number;
+  addedSugars?: number;
+  sugarAlcohols?: number;
+  protein?: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SavedFoodRecord {
+  id: string;
+  profile_id: string;
+  brand_name: string | null;
+  description: string;
+  serving_size: string;
+  servings_per_container: number | string;
+  calories: number | string;
+  total_fat: number | string | null;
+  saturated_fat: number | string | null;
+  polyunsaturated_fat: number | string | null;
+  monounsaturated_fat: number | string | null;
+  trans_fat: number | string | null;
+  cholesterol: number | string | null;
+  sodium: number | string | null;
+  potassium: number | string | null;
+  total_carbohydrates: number | string | null;
+  dietary_fiber: number | string | null;
+  sugars: number | string | null;
+  added_sugars: number | string | null;
+  sugar_alcohols: number | string | null;
+  protein: number | string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SavedFoodInput {
+  brandName?: string;
+  description: string;
+  servingSize: string;
+  servingsPerContainer: number;
+  calories: number;
+  totalFat?: number;
+  saturatedFat?: number;
+  polyunsaturatedFat?: number;
+  monounsaturatedFat?: number;
+  transFat?: number;
+  cholesterol?: number;
+  sodium?: number;
+  potassium?: number;
+  totalCarbohydrates?: number;
+  dietaryFiber?: number;
+  sugars?: number;
+  addedSugars?: number;
+  sugarAlcohols?: number;
+  protein?: number;
+}
+
+export interface SavedFoodUpdateInput extends SavedFoodInput {
+  id: string;
+}
+
 export type FoodSearchAdapterId = 'open-food-facts' | 'ai-fast';
 
 export interface FoodSearchRequest extends FoodSearchParams {
@@ -372,4 +450,49 @@ export interface SentryRuntimeConfig {
 export type AppStackScreenOptions = NativeStackNavigationOptions & {
   headerBackTitleVisible?: boolean;
 };
+
+export interface OutreachSearchDefinition {
+  id: string;
+  label: string;
+  query: string;
+  subreddit?: string;
+  sort?: 'relevance' | 'new' | 'top' | 'hot';
+  timeframe?: 'hour' | 'day' | 'week' | 'month' | 'year' | 'all';
+  keywords?: string[];
+  angle?: string;
+  valueProp?: string;
+  commentTemplate?: string;
+  notes?: string;
+}
+
+export interface OutreachTargetHit {
+  id: string;
+  queryId: string;
+  title: string;
+  permalink: string;
+  url: string;
+  author: string;
+  subreddit: string;
+  flair?: string | null;
+  createdUtc: number;
+  upvotes: number;
+  comments: number;
+  matchScore: number;
+  ageHours: number;
+  keywordsMatched: string[];
+  summary?: string;
+  angle?: string;
+  valueProp?: string;
+  commentTemplate?: string;
+  status: 'new' | 'drafted' | 'posted' | 'skip';
+}
+
+export interface OutreachDigest {
+  generatedAt: string;
+  queries: Array<{
+    definition: OutreachSearchDefinition;
+    hits: OutreachTargetHit[];
+    error?: string;
+  }>;
+}
 

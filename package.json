@@ -10,7 +10,8 @@
     "web": "expo start --web",
     "web:build": "expo export --platform web",
     "lint": "expo lint",
-    "postinstall": "patch-package"
+    "postinstall": "patch-package",
+    "prepare": "husky"
   },
   "dependencies": {
     "@ai-sdk/openai": "^2.0.73",
@@ -44,6 +45,7 @@
     "expo-symbols": "~1.0.7",
     "expo-system-ui": "~6.0.8",
     "expo-web-browser": "~15.0.9",
+    "ollama-ai-provider-v2": "^1.5.5",
     "patch-package": "^8.0.1",
     "react": "19.1.0",
     "react-dom": "19.1.0",
@@ -59,13 +61,13 @@
     "react-native-web": "~0.21.0",
     "react-native-worklets": "0.5.1",
     "swr": "^2.3.6",
-    "ollama-ai-provider-v2": "^1.5.5",
     "zod": "^4.1.13"
   },
   "devDependencies": {
     "@types/react": "~19.1.0",
     "eslint": "^9.25.0",
     "eslint-config-expo": "~10.0.0",
+    "husky": "^9.1.7",
     "typescript": "~5.9.2"
   },
   "private": true

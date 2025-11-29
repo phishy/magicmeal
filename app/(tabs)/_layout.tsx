@@ -263,12 +263,6 @@ const quickActions = [
     route: '/barcode-scanner',
   },
   {
-    key: 'voice',
-    label: 'Voice Log',
-    icon: 'mic.fill',
-    colorKey: 'quickActionVoice',
-  },
-  {
     key: 'meal',
     label: 'Meal Scan',
     icon: 'camera.viewfinder',
@@ -338,12 +332,12 @@ const PlusActionSheet = ({ visible, onClose, onSelectWeight }: PlusSheetProps) =
         </View>
 
         <View style={sheetStyles.trackerList}>
-          {trackerActions.map((action, index) => (
+          {trackerActions.map((action) => (
             <TouchableOpacity
               key={action.key}
               style={[
-                sheetStyles.trackerRow,
-                { borderBottomWidth: index === trackerActions.length - 1 ? 0 : StyleSheet.hairlineWidth, borderBottomColor: theme.separator },
+                sheetStyles.trackerCard,
+                { borderColor: theme.border, backgroundColor: theme.cardElevated },
               ]}
               onPress={() => handleAction(action)}
             >
@@ -574,15 +568,20 @@ const sheetStyles = StyleSheet.create({
   },
   trackerList: {
     marginTop: 8,
-    borderRadius: 20,
-    overflow: 'hidden',
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    rowGap: 12,
   },
-  trackerRow: {
+  trackerCard: {
+    width: '48%',
+    borderRadius: 16,
+    paddingVertical: 14,
+    paddingHorizontal: 12,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 14,
-    paddingHorizontal: 6,
     gap: 12,
+    borderWidth: StyleSheet.hairlineWidth,
   },
   trackerIcon: {
     width: 28,

@@ -20,6 +20,8 @@ const MAPPING: IconMapping = {
   'paperplane.fill': 'send',
   'chevron.left.forwardslash.chevron.right': 'code',
   'chevron.right': 'chevron-right',
+  'chevron.left': 'chevron-left',
+  'chevron.down': 'expand-more',
   'bubble.left.and.text.bubble.right.fill': 'forum',
   gauge: 'speed',
   calendar: 'calendar-today',
@@ -35,7 +37,12 @@ const MAPPING: IconMapping = {
   'trash.fill': 'delete',
   'photo.fill': 'collections',
   'mic.fill': 'mic',
+  'paintbrush.fill': 'brush',
   'heart.fill': 'favorite',
+  'checkmark.circle.fill': 'check-circle',
+  'plus.circle.fill': 'add-circle',
+  'arrow.clockwise.circle': 'refresh',
+  'mappin.circle.fill': 'location-on',
   scalemass: 'monitor-weight',
   'scalemass.fill': 'monitor-weight',
   'tray.and.arrow.down': 'file-download',
@@ -43,7 +50,11 @@ const MAPPING: IconMapping = {
   'flame.fill': 'local-fire-department',
   'flag.fill': 'flag',
   'fork.knife': 'restaurant',
+  'wrench.and.screwdriver.fill': 'handyman',
   ellipsis: 'more-horiz',
+  xmark: 'close',
+  'bolt.heart': 'favorite',
+  'leaf.fill': 'eco',
 } as IconMapping;
 
 /**

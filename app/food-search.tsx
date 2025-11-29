@@ -3,14 +3,14 @@ import { Audio } from 'expo-av';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
-  Alert,
-  FlatList,
-  Modal,
-  StyleSheet,
-  TextInput,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    Alert,
+    FlatList,
+    Modal,
+    StyleSheet,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
@@ -246,6 +246,7 @@ export default function FoodSearch() {
 
   useEffect(() => {
     if (!trimmedSearchQuery) {
+    savedSearchRequestId.current += 1;
       setResults([]);
       setSavedResults([]);
       setSavedResultsLoading(false);
@@ -266,6 +267,7 @@ export default function FoodSearch() {
     async (query: string) => {
       const normalizedQuery = query.trim();
       if (!normalizedQuery) {
+      savedSearchRequestId.current += 1;
         setSavedResults([]);
         setSavedResultsLoading(false);
         return;

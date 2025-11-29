@@ -251,7 +251,7 @@ const createStyles = (theme: Theme) =>
     },
     errorText: {
       textAlign: 'center',
-      color: theme.error,
+      color: theme.danger,
     },
     retryText: {
       color: theme.primary,

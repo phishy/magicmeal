@@ -1,0 +1,8 @@
+diff --git a/node_modules/react-native-image-viewing/dist/components/ImageItem/ImageItem.js b/node_modules/react-native-image-viewing/dist/components/ImageItem/ImageItem.js
+new file mode 100644
+index 0000000..3e18e23
+--- /dev/null
++++ b/node_modules/react-native-image-viewing/dist/components/ImageItem/ImageItem.js
+@@ -0,0 +1,2 @@
++export * from './ImageItem.ios';
++export { default } from './ImageItem.ios';

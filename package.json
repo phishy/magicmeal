@@ -5,6 +5,7 @@
   "scripts": {
     "start": "expo start",
     "reset-project": "node ./scripts/reset-project.js",
+    "biz:reddit-scout": "node ./biz/reddit-scout.mjs",
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
@@ -74,6 +75,7 @@
     "@semantic-release/npm": "^13.1.2",
     "@semantic-release/release-notes-generator": "^14.1.0",
     "@types/react": "~19.1.0",
+    "actionlint": "^2.0.6",
     "commitizen": "^4.3.1",
     "cz-conventional-changelog": "^3.3.0",
     "eslint": "^9.25.0",
@@ -87,5 +89,18 @@
     "commitizen": {
       "path": "cz-conventional-changelog"
     }
-  }
+  },
+  "description": "AI-powered 💪 calorie tracker 🥗 for food, weight ⚖️, blood pressure ❤️, and recipe tracking 🍳 — built with React Native + Expo. Track your meals effortlessly with barcode scanning and AI photo recognition.",
+  "directories": {
+    "lib": "lib"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/phishy/magicmeal.git"
+  },
+  "author": "",
+  "bugs": {
+    "url": "https://github.com/phishy/magicmeal/issues"
+  },
+  "homepage": "https://github.com/phishy/magicmeal#readme"
 }

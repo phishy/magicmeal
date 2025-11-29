@@ -1,7 +1,7 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { Audio } from 'expo-av';
 import { useRouter } from 'expo-router';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -19,6 +19,7 @@ import type { Theme } from '@/constants/theme';
 import { useAppTheme } from '@/providers/ThemePreferenceProvider';
 import { getOpenAiApiKey, transcribeAudioFile } from '@/services/ai';
 import { searchFoods } from '@/services/foodSearch';
+import { listFoods, savedFoodToFoodItem } from '@/services/foods';
 import { createMeal, mapFoodToMealInput } from '@/services/meals';
 import type { FoodItem, MealType } from '@/types';
 
@@ -33,6 +34,8 @@ const isAbortError = (error: unknown): boolean =>
 export default function FoodSearch() {
   const [searchQuery, setSearchQuery] = useState('');
   const [results, setResults] = useState<FoodItem[]>([]);
+  const [savedResults, setSavedResults] = useState<FoodItem[]>([]);
+  const [savedResultsLoading, setSavedResultsLoading] = useState(false);
   const [searching, setSearching] = useState(false);
   const [recording, setRecording] = useState<Audio.Recording | null>(null);
   const [isRecording, setIsRecording] = useState(false);
@@ -50,6 +53,7 @@ export default function FoodSearch() {
   const hasSearchQuery = trimmedSearchQuery.length > 0;
   const searchAbortController = useRef<AbortController | null>(null);
   const latestSearchRequestId = useRef(0);
+  const savedSearchRequestId = useRef(0);
 
   const searchFood = async (query: string, page = 1, append = false) => {
     const normalizedQuery = query.trim();
@@ -202,9 +206,10 @@ export default function FoodSearch() {
   };
 
   const dynamicStyles = createStyles(theme);
+  const combinedResults = useMemo(() => [...savedResults, ...results], [savedResults, results]);
   const filteredResults = useMemo(
-    () => (onlyBranded ? results.filter((item) => Boolean(item.brand)) : results),
-    [results, onlyBranded]
+    () => (onlyBranded ? combinedResults.filter((item) => Boolean(item.brand)) : combinedResults),
+    [combinedResults, onlyBranded]
   );
 
   const renderFoodItem = ({ item }: { item: FoodItem }) => (
@@ -215,6 +220,11 @@ export default function FoodSearch() {
           {item.verified && (
             <View style={dynamicStyles.verifiedBadge}>
               <MaterialIcons name="verified" size={12} color="#0A84FF" />
+            </View>
+          )}
+          {item.id.startsWith('saved_food_') && (
+            <View style={dynamicStyles.savedBadge}>
+              <ThemedText style={dynamicStyles.savedBadgeText}>Yours</ThemedText>
             </View>
           )}
         </View>
@@ -237,6 +247,8 @@ export default function FoodSearch() {
   useEffect(() => {
     if (!trimmedSearchQuery) {
       setResults([]);
+      setSavedResults([]);
+      setSavedResultsLoading(false);
       setSearching(false);
       setHasMore(false);
       setCurrentPage(1);
@@ -249,6 +261,39 @@ export default function FoodSearch() {
 
     return () => clearTimeout(timeout);
   }, [trimmedSearchQuery]);
+
+  const searchSavedFoods = useCallback(
+    async (query: string) => {
+      const normalizedQuery = query.trim();
+      if (!normalizedQuery) {
+        setSavedResults([]);
+        setSavedResultsLoading(false);
+        return;
+      }
+
+      const requestId = savedSearchRequestId.current + 1;
+      savedSearchRequestId.current = requestId;
+      setSavedResultsLoading(true);
+      try {
+        const foods = await listFoods(normalizedQuery);
+        if (savedSearchRequestId.current === requestId) {
+          setSavedResults(foods.map(savedFoodToFoodItem));
+        }
+      } catch (error) {
+        console.error('Saved foods search error:', error);
+      } finally {
+        if (savedSearchRequestId.current === requestId) {
+          setSavedResultsLoading(false);
+        }
+      }
+    },
+    []
+  );
+
+  useEffect(() => {
+    if (!trimmedSearchQuery) return;
+    searchSavedFoods(trimmedSearchQuery);
+  }, [searchSavedFoods, trimmedSearchQuery]);
 
   useEffect(() => {
     return () => {
@@ -331,6 +376,12 @@ export default function FoodSearch() {
               </ThemedText>
             </TouchableOpacity>
           </View>
+          {savedResultsLoading && (
+            <View style={dynamicStyles.savedLoadingRow}>
+              <ActivityIndicator size="small" color={theme.primary} />
+              <ThemedText style={dynamicStyles.savedLoadingText}>Loading your foods…</ThemedText>
+            </View>
+          )}
           <FlatList
             data={filteredResults}
             renderItem={renderFoodItem}
@@ -456,6 +507,17 @@ const createStyles = (theme: Theme) => StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
+  savedLoadingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 20,
+    paddingBottom: 8,
+  },
+  savedLoadingText: {
+    fontSize: 12,
+    color: theme.textSecondary,
+  },
   resultsTitle: {
     fontSize: 18,
     fontWeight: '600',
@@ -507,6 +569,17 @@ const createStyles = (theme: Theme) => StyleSheet.create({
     paddingVertical: 2,
     borderRadius: 999,
     backgroundColor: 'rgba(10,132,255,0.15)',
+  },
+  savedBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 999,
+    backgroundColor: theme.primary,
+  },
+  savedBadgeText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: theme.onPrimary,
   },
   foodServing: {
     fontSize: 13,

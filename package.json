@@ -23,7 +23,6 @@
     "@sentry/react-native": "^7.7.0",
     "@supabase/supabase-js": "^2.86.0",
     "ai": "^5.0.102",
-    "ollama-ai-provider-v2": "^1.5.5",
     "expo": "~54.0.25",
     "expo-av": "^16.0.7",
     "expo-barcode-scanner": "^13.0.1",
@@ -45,7 +44,6 @@
     "expo-symbols": "~1.0.7",
     "expo-system-ui": "~6.0.8",
     "expo-web-browser": "~15.0.9",
-    "ollama-ai-provider-v2": "^1.5.5",
     "patch-package": "^8.0.1",
     "react": "19.1.0",
     "react-dom": "19.1.0",
@@ -61,7 +59,8 @@
     "react-native-web": "~0.21.0",
     "react-native-worklets": "0.5.1",
     "swr": "^2.3.6",
-    "zod": "^3.23.8"
+    "ollama-ai-provider-v2": "^1.5.5",
+    "zod": "^4.1.13"
   },
   "devDependencies": {
     "@types/react": "~19.1.0",

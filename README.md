@@ -1,6 +1,6 @@
 # 🍽️ MagicMeal - A Self-Hosted Alternative
 
-![MagicMeal hero UI](img/hero-image.png)
+AI-powered 💪 calorie tracker 🥗 for food, weight ⚖️, blood pressure ❤️, and recipe tracking 🍳 — built with React Native + Expo. Track your meals effortlessly with barcode scanning and AI photo recognition.
 
 ## 📸 Screenshots
 
@@ -19,11 +19,7 @@
         <img src="img/screen-05.png" alt="MagicMeal progress trends" width="19%" /></a>
 </p>
 
-## 📷 Dashboard Preview
-
-Get a feel for the in-app experience with a look at the primary dashboard that surfaces calorie progress, macros, and recent weights at a glance.
-
-![MagicMeal dashboard UI](img/dashboard.png)
+## ✨ Overview
 
 A modern, AI-powered food tracking app built with React Native and Expo. Track your meals effortlessly with barcode scanning and AI photo recognition.
 

@@ -10,6 +10,7 @@
     "web": "expo start --web",
     "web:build": "expo export --platform web",
     "lint": "expo lint",
+    "commit": "cz",
     "postinstall": "patch-package",
     "prepare": "husky"
   },
@@ -64,11 +65,20 @@
     "zod": "^4.1.13"
   },
   "devDependencies": {
+    "@commitlint/cli": "^20.1.0",
+    "@commitlint/config-conventional": "^20.0.0",
     "@types/react": "~19.1.0",
+    "commitizen": "^4.3.1",
+    "cz-conventional-changelog": "^3.3.0",
     "eslint": "^9.25.0",
     "eslint-config-expo": "~10.0.0",
     "husky": "^9.1.7",
     "typescript": "~5.9.2"
   },
-  "private": true
+  "private": true,
+  "config": {
+    "commitizen": {
+      "path": "cz-conventional-changelog"
+    }
+  }
 }

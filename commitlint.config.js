@@ -18,6 +18,7 @@ module.exports = {
         'supabase',
         'scripts',
         'types',
+        'release',
         'deps',
         'docs',
         'infra'

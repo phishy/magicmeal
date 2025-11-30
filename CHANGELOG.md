@@ -1,3 +1,15 @@
+# [0.1.0](https://github.com/phishy/magicmeal/compare/v0.0.0...v0.1.0) (2025-11-30)
+
+
+### Bug Fixes
+
+* fixes bugs ([8009e29](https://github.com/phishy/magicmeal/commit/8009e29267df811e5d53de97d08e96a466b9669c))
+
+
+### Features
+
+* implement recipe management features including create and edit functionality ([433d8d3](https://github.com/phishy/magicmeal/commit/433d8d3c07d1f4d35961128ada9758fca3c3da3c))
+
 # 1.0.0 (2025-11-29)
 
 

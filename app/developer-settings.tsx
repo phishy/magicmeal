@@ -17,7 +17,7 @@ import { AI_PROVIDER_OPTIONS, ensureModelForProvider } from '@/constants/ai';
 import type { Theme } from '@/constants/theme';
 import { useDeveloperSettings } from '@/providers/DeveloperSettingsProvider';
 import { useAppTheme } from '@/providers/ThemePreferenceProvider';
-import { getOpenAiApiKey, isAiProviderReady } from '@/services/ai';
+import { isAiProviderReady } from '@/services/ai';
 import { listFoodSearchAdapters } from '@/services/foodSearch';
 import { fetchOllamaModels } from '@/services/ollama';
 import type { AiModelOption, AiProviderId, FoodSearchAdapter } from '@/types';
@@ -102,7 +102,6 @@ export default function DeveloperSettingsScreen() {
 
   const activeProvider = AI_PROVIDER_OPTIONS[settings.aiProviderId];
   const styles = createStyles(theme);
-  const openAiConfigured = Boolean(getOpenAiApiKey());
 
   if (!isReady) {
     return (
@@ -157,11 +156,8 @@ export default function DeveloperSettingsScreen() {
           <View style={styles.providerList}>
             {providerOptions.map((provider) => {
               const isSelected = provider.id === settings.aiProviderId;
-              const requiresKey = provider.requiresApiKey;
               const isReady =
-                provider.id === 'openai'
-                  ? openAiConfigured
-                  : isAiProviderReady(provider.id);
+                provider.id === 'openai' ? true : isAiProviderReady(provider.id);
 
               return (
                 <TouchableOpacity
@@ -181,9 +177,6 @@ export default function DeveloperSettingsScreen() {
                     ) : null}
                   </View>
                   <ThemedText style={styles.providerDescription}>{provider.description}</ThemedText>
-                  {requiresKey && !openAiConfigured ? (
-                    <ThemedText style={styles.providerWarning}>API key missing</ThemedText>
-                  ) : null}
                 </TouchableOpacity>
               );
             })}
@@ -348,10 +341,6 @@ const createStyles = (theme: Theme) =>
     providerDescription: {
       color: theme.textSecondary,
       fontSize: 14,
-    },
-    providerWarning: {
-      color: theme.warning,
-      fontSize: 13,
     },
     selectControl: {
       borderWidth: 1,

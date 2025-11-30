@@ -25,6 +25,14 @@ const toolCards = [
     route: '/tools/feed',
   },
   {
+    id: 'recipes',
+    title: 'Recipes',
+    description: 'Save your custom foods for quick logging.',
+    icon: 'book.closed.fill',
+    accentKey: 'toolCardRecipes',
+    route: '/tools/recipes',
+  },
+  {
     id: 'weight',
     title: 'Weight',
     description: 'Track weight changes over time and visualize progress.',

@@ -1,1 +1,2 @@
+node ./scripts/actionlint.mjs .github/workflows
 npm run web:build
